@@ -1,22 +1,30 @@
 #include <iostream>
 #include "engine.h"
+#include "rapidjson/document.h"
+#include "rapidjson/writer.h"
+#include "rapidjson/stringbuffer.h"
 
 int main() {
     Game game;
-    game.init();
-    game.draw();
-    while (game.window.isOpen()){
+    RenderWindow window(VideoMode(0, 0), "", Style::Fullscreen);
+    game.init(window);
+    window.display();
+
+    //game.draw();
+    //window.display();
+    while (window.isOpen()){
         Event event;
-        while (game.window.pollEvent(event)){
+        while (window.pollEvent(event)){
             if (event.type == Event::Closed){
-                game.window.close();
+                window.close();
                 break;
             } else {
                 game.update(event);
             }
         }
         game.move();
-        game.draw();
+        game.draw(window);
+        window.display();
     }
     return 0;
 }

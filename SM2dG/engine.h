@@ -9,6 +9,7 @@
 #pragma once
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
+#include <SFML/System.hpp>
 #include <bits/stdc++.h>
 
 using namespace sf;
@@ -32,10 +33,6 @@ void init_textures() {
 
 
 struct Game {
-
-    RenderWindow window;
-
-
     struct Object : public Sprite{
         int id;
         int x_coord, y_coord;
@@ -74,13 +71,21 @@ struct Game {
         int attack = 0;
     };
 
-    Player player;
+    struct Mob : public MovableObject {
+        Mob(int id){
 
-    void init(){
+        }
+    };
+
+    Player player;
+    int max_fps = 60;
+
+    void init(RenderWindow& window){
         window.setTitle("GameBebra beta");
-        auto sizes = VideoMode::getFullscreenModes();
-        auto h = sizes[0].height, w = sizes[0].width;
-        window.setSize({w, h});
+        //auto sizes = VideoMode::getFullscreenModes();
+        //auto h = sizes[0].height, w = sizes[0].width;
+        //window.setSize({w, h});
+        //window.setPosition({-10, 0});
     }
 
     void update(Event& event){
@@ -122,15 +127,13 @@ struct Game {
 
     void move(){
 
-    };
+    }
 
-    void draw(){
+    void draw(RenderWindow& window){
 
     }
 
 
-
-    int max_fps = 60;
 
 };
 
