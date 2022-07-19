@@ -18,34 +18,59 @@ using std::string, std::vector, std::cin, std::cout;
 const int
 MAX_COCK_PACK_SIZE = 20, // Размер рюкзака
 MAX_FAST_COCK_PACK_SIZE = 5, // Размер строки быстрого доступа
-MAX_TEXTURES_COUNT = 200,
+MAX_TEXTURES_COUNT = 4,
 WORLD_SIZE = 256,
-CHUNK_SIZE = 512,
+CHUNK_SIZE = 32,
 MAX_RENDER_DISTANCE = 7;
 
 bool active_chunks[WORLD_SIZE][WORLD_SIZE];
-json<int, sf::Texture> textures; // Жоска экономим память, не храня спрайты
+vector<sf::Texture> textures(MAX_TEXTURES_COUNT); // Жоска экономим память, не храня спрайты
 
 void init_textures() {
     for (int i = 0; i < MAX_TEXTURES_COUNT; i++) {
-        string num = std::to_string(i);
-        string name = "texture" + num;
+        string name = ".//textures//" + std::to_string(i) + ".png";
         textures[i].loadFromFile(name);
     }
 }
 
 struct Game {
-    int screen_x_size, screen_y_size;
+    sf::RenderWindow* window;
+    Game(sf::RenderWindow* n_window) : window{ n_window } {
+        std::srand(std::time(nullptr));
+        chunks.resize(WORLD_SIZE, vector<Chunk>(WORLD_SIZE));
+
+        int chunk_x_coord = player.x_coord / CHUNK_SIZE;
+        int chunk_y_coord = player.y_coord / CHUNK_SIZE;
+        for (int i = 0; i < MAX_RENDER_DISTANCE + 1; i++) {
+            int dx[4] = { -1, -1, 1, 1 };
+            int dy[4] = { 1, -1, -1, 1 };
+            for (int j = 0; j < MAX_RENDER_DISTANCE + 1 - i; ++j) {
+                for (int d = 0; d < 4; d++) {
+                    int nx = chunk_x_coord + i * dx[d];
+                    int ny = chunk_y_coord + j * dy[d];
+                    if (nx < 0 || ny < 0) continue;
+                    nx %= WORLD_SIZE;
+                    ny %= WORLD_SIZE;
+
+                    if (!active_chunks[nx][ny]) {
+                        chunks[nx][ny].load(nx, ny);
+                        chunks[nx][ny].draw(player.x_coord, player.y_coord, window);
+                        active_chunks[nx][ny] = true;
+                    }
+                }
+            }
+        }
+    }
 
     struct Object : public sf::Sprite {
+        Object(int n_x, int n_y, int n_id) :
+            x_coord{ n_x }, y_coord{ n_y }, id{ n_id } {}
+
         int id;
         int x_coord, y_coord;
         json<string, string> parameters;
         int static_texture;
         vector<int> animated_texture;
-        Object(int n_x, int n_y, int n_id) :
-            x_coord{ n_x }, y_coord{ n_y }, id{ n_id } {}
-
 
         void draw(int player_x, int player_y) {
 
@@ -75,12 +100,32 @@ struct Game {
     };
 
     struct Player : public MovableObject {
-        Player() : MovableObject(0, 0, 0) {}; //TODO: fix player coords
+        Player() : MovableObject(1000, 1000, 0) {
+            dx = 0; dy = 0; speed = 5;
+        };
+
+        void update() {
+            if (direction == "up") setTexture(textures[0]);
+            else if (direction == "left") setTexture(textures[1]);
+            else if (direction == "down") setTexture(textures[2]);
+            else if (direction == "right") setTexture(textures[3]);
+            setPosition(400, 300);
+        }
+
+        void draw(sf::RenderWindow* window) {
+            window->draw(*this);
+            sf::Font test_font;
+            test_font.loadFromFile("Hack-Regular.ttf");
+            sf::Text coords_text(std::to_string(x_coord) + ' ' + std::to_string(y_coord), test_font);
+            coords_text.setPosition(10, 10);
+            coords_text.setCharacterSize(18);
+            window->draw(coords_text);
+        }
+
         CockPack pack;
         Item left_hand_item, right_hand_item;
         string direction = "down";
-        int dx = 0, dy = 0;
-        int speed = 5;
+
         int walk = 0;
         int attack = 0;
     };
@@ -89,9 +134,11 @@ struct Game {
         vector<int> animation_textures;
         int stop_texture;
         Mob(int x, int y, int id) : MovableObject(x, y, id) {}
+
         void init2() {
 
         }
+
         void logic() {
 
         }
@@ -100,7 +147,12 @@ struct Game {
     struct Chunk {
         vector<Mob> mobs;
         vector<Object> objects;
+        sf::Color color;
+        int x_coord, y_coord;
+
         void load(int x, int y) {
+            x_coord = x; y_coord = y;
+            color = { std::rand() % 256, std::rand() % 256, std::rand() % 256, 255 };
             freopen((".//chunks//" + std::to_string(x) + "-" + std::to_string(y) + ".chunk").c_str(), "r", stdin);
             bool bool_mobs_reading = false;
             string cur;
@@ -115,16 +167,25 @@ struct Game {
                     bool_mobs_reading = false;
                 else {
                     int type = atoi(cur.c_str());
-                    int xcoord, ycoord;
-                    cin >> xcoord >> ycoord;
+                    int content_x_coord, content_y_coord;
+                    cin >> content_x_coord >> content_y_coord;
                     if (bool_mobs_reading)
-                        Mob new_mob(1, 2, 3);
-
+                        mobs.emplace_back(Mob(content_x_coord, content_y_coord, type));
                     else
-                        objects.emplace_back(Object(xcoord, ycoord, type));
-
+                        objects.emplace_back(Object(content_x_coord, content_y_coord, type));
                 }
             }
+        }
+
+        void draw(int player_x, int player_y, sf::RenderWindow* window) {
+            sf::RectangleShape shape({ CHUNK_SIZE, CHUNK_SIZE });
+            shape.setFillColor(color);
+            int x = x_coord * CHUNK_SIZE;
+            int y = y_coord * CHUNK_SIZE;
+            x = 400 + x - player_x;
+            y = 300 + y - player_y;
+            shape.setPosition({ x, y });
+            window->draw(shape);
         }
 
         void del() {
@@ -139,11 +200,6 @@ struct Game {
     Player player;
     int max_fps = 60;
     vector<vector<Chunk>> chunks;
-
-    Game() {
-        chunks.resize(WORLD_SIZE, vector<Chunk>(WORLD_SIZE));
-    }
-
 
     void update(sf::Event& event) {
         if (event.type == sf::Event::KeyPressed) {
@@ -204,7 +260,7 @@ struct Game {
         }
 
         for (int i = 0; i < MAX_RENDER_DISTANCE + 1; i++) {
-            int j = MAX_RENDER_DISTANCE + 1 - i;
+            int j = MAX_RENDER_DISTANCE - i;
             int dx[4] = { -1, -1, 1, 1 };
             int dy[4] = { 1, -1, -1, 1 };
             for (int d = 0; d < 4; d++) {
@@ -220,6 +276,7 @@ struct Game {
                 }
             }
         }
+        player.update();
     }
 
     void move() {
@@ -228,26 +285,27 @@ struct Game {
                 for (auto& i : chunk.mobs) {
                     i.logic();
                     i.move();
-                    //if (){ // проверка на то что моб клоун и ливнул из чанка
+                    //if (){ // TODO: проверка на то что моб клоун и ливнул из чанка
                     //
                     //}
                 }
             }
         }
+        player.move();
     }
 
 
-    void draw(sf::RenderWindow& window) {
-        for (auto& row_chunk : chunks) {
-            for (auto& chunk : row_chunk) {
-                for (auto& i : chunk.mobs) {
-                    i.draw(player.x_coord, player.y_coord);
+    void draw() {
+        for (int i = 0; i < WORLD_SIZE; ++i)
+            for (int j = 0; j < WORLD_SIZE; ++j)
+                if (active_chunks[i][j]) {
+                    chunks[i][j].draw(player.x_coord, player.y_coord, window);
+                    for (auto& i : chunks[i][j].mobs) 
+                        i.draw(player.x_coord, player.y_coord);
+                    for (auto& i : chunks[i][j].objects) 
+                        i.draw(player.x_coord, player.y_coord);
                 }
-                for (auto& i : chunk.objects) {
-                    i.draw(player.x_coord, player.y_coord);
-                }
-            }
-        }
+        player.draw(window);
     }
 
 };
