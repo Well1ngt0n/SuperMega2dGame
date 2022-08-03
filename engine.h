@@ -16,8 +16,8 @@
 using std::string, std::vector, std::cin, std::cout;
 
 const int
-MAX_COCK_PACK_SIZE = 20, // Размер рюкзака
-MAX_FAST_COCK_PACK_SIZE = 5, // Размер строки быстрого доступа
+MAX_PACK_SIZE = 20, // Размер рюкзака
+MAX_FAST_PACK_SIZE = 5, // Размер строки быстрого доступа
 MAX_TEXTURES_COUNT = 4,
 WORLD_SIZE = 256,
 CHUNK_SIZE = 32,
@@ -94,8 +94,8 @@ struct Game {
         json<string, string> parameters;
     };
 
-    struct CockPack {
-        Item inventory[MAX_COCK_PACK_SIZE];
+    struct Pack {
+        Item inventory[MAX_PACK_SIZE];
         bool is_open = false;
     };
 
@@ -115,14 +115,14 @@ struct Game {
         void draw(sf::RenderWindow* window) {
             window->draw(*this);
             sf::Font test_font;
-            test_font.loadFromFile("Hack-Regular.ttf");
+            //test_font.loadFromFile("Hack-Regular.ttf");
             sf::Text coords_text(std::to_string(x_coord) + ' ' + std::to_string(y_coord), test_font);
             coords_text.setPosition(10, 10);
             coords_text.setCharacterSize(18);
             window->draw(coords_text);
         }
 
-        CockPack pack;
+        Pack pack;
         Item left_hand_item, right_hand_item;
         string direction = "down";
 
@@ -198,7 +198,7 @@ struct Game {
     };
 
     Player player;
-    int max_fps = 60;
+    const int max_fps = 60;
     vector<vector<Chunk>> chunks;
 
     void update(sf::Event& event) {
@@ -300,10 +300,10 @@ struct Game {
             for (int j = 0; j < WORLD_SIZE; ++j)
                 if (active_chunks[i][j]) {
                     chunks[i][j].draw(player.x_coord, player.y_coord, window);
-                    for (auto& i : chunks[i][j].mobs) 
-                        i.draw(player.x_coord, player.y_coord);
-                    for (auto& i : chunks[i][j].objects) 
-                        i.draw(player.x_coord, player.y_coord);
+                    for (auto& kok : chunks[i][j].mobs) 
+                        kok.draw(player.x_coord, player.y_coord);
+                    for (auto& kok : chunks[i][j].objects) 
+                        kok.draw(player.x_coord, player.y_coord);
                 }
         player.draw(window);
     }
