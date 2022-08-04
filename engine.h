@@ -156,30 +156,39 @@ struct Game {
         int x_coord, y_coord;
 
         void load(int x, int y) {
-            x_coord = x;
-            y_coord = y;
-            color = {std::rand() % 256, std::rand() % 256, std::rand() % 256, 255};
-            freopen((".//chunks//" + std::to_string(x) + "-" + std::to_string(y) + ".chunk").c_str(), "r", stdin);
-            bool bool_mobs_reading = false;
-            string cur;
-            if (!(cin >> cur)) return;
-            if (cur == "mobs")
-                bool_mobs_reading = true;
+            x_coord = x, y_coord = y;
+            std::ifstream f((".//chunks//" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str());
+            color = { uint8_t(std::rand() % 256), uint8_t(std::rand() % 256), uint8_t(std::rand() % 256), 255 };
+            if (!f.is_open()) return;
+            int mobs_cnt;
+            f >> mobs_cnt;
+            for (int i = 0; i < mobs_cnt; ++i) {
+                int mob_type, mob_x, mob_y;
+                f >> mob_type >> mob_x >> mob_y;
+                mobs.emplace_back(Mob(mob_x, mob_y, mob_type));
+            }
 
-            while (cin >> cur) {
-                if (cur == "mobs")
-                    bool_mobs_reading = true;
-                else if (cur == "objects")
-                    bool_mobs_reading = false;
-                else {
-                    int type = atoi(cur.c_str());
-                    int content_x_coord, content_y_coord;
-                    cin >> content_x_coord >> content_y_coord;
-                    if (bool_mobs_reading)
-                        mobs.emplace_back(Mob(content_x_coord, content_y_coord, type));
-                    else
-                        objects.emplace_back(Object(content_x_coord, content_y_coord, type));
-                }
+            int obj_cnt;
+            f >> obj_cnt;
+            for (int i = 0; i < obj_cnt; ++i) {
+                int obj_type, obj_x, obj_y;
+                f >> obj_type >> obj_x >> obj_y;
+                objects.emplace_back(Object(obj_x, obj_y, obj_type));
+            }
+        }
+
+        void upload() {
+            std::ofstream f((".//chunks//" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(), std::ios::out | std::ios::trunc);
+            if (!f.is_open()) return;
+            int mobs_cnt = mobs.size();
+            f << mobs_cnt << '\n';
+            for (int i = 0; i < mobs_cnt; ++i) {
+                f << mobs[i].id << ' ' << mobs[i].x_coord << ' ' << mobs[i].y_coord << '\n';
+            }
+            int obj_cnt = objects.size();
+            f << obj_cnt << '\n';
+            for (int i = 0; i < obj_cnt; ++i) {
+                f << objects[i].id << ' ' << objects[i].x_coord << ' ' << objects[i].y_coord << '\n';
             }
         }
 
@@ -195,7 +204,7 @@ struct Game {
         }
 
         void del() {
-            // TODO: вот тут надо файлик поправить
+            upload();
             mobs.clear();
             mobs.shrink_to_fit();
             objects.clear();
@@ -205,7 +214,7 @@ struct Game {
 
 
 
-    int max_fps = 60;
+    const int max_fps = 60;
     vector<vector<Chunk>> chunks;
 
     void update(sf::Event &event) {
