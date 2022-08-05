@@ -7,7 +7,7 @@ int main() {
     init_textures();
     // window.clear({0, 0, 100, 255});
     window.display();
-
+    int ind = 0;
     while (window.isOpen()) {
         sf::Event event;
         while (window.pollEvent(event)) {
@@ -19,7 +19,9 @@ int main() {
                 game.update(event);
             }
         }
+
         window.clear({0, 0, 100, 255});
+
         game.move();
         game.draw();
         window.display();
