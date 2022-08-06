@@ -3,9 +3,9 @@
 
 int main() {
     sf::RenderWindow window(sf::VideoMode(800, 600), "GameBebra beta", sf::Style::Default);
-    Game game(&window);
     init_textures();
-    // window.clear({0, 0, 100, 255});
+    Game game(&window);
+    window.clear({0, 0, 100, 255});
     window.display();
     int ind = 0;
     while (window.isOpen()) {
@@ -25,7 +25,7 @@ int main() {
         game.move();
         game.draw();
         window.display();
-        sf::sleep(sf::Time(sf::milliseconds(10)));
+        sf::sleep(sf::Time(sf::milliseconds(game.calculate_sleep_time())));
     }
     return 0;
 }

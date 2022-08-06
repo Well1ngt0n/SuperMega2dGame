@@ -18,7 +18,7 @@ using std::string, std::vector, std::cin, std::cout;
 const int
 MAX_PACK_SIZE = 20, // Размер рюкзака
 MAX_FAST_PACK_SIZE = 5, // Размер строки быстрого доступа
-MAX_TEXTURES_COUNT = 4,
+MAX_TEXTURES_COUNT = 8,
         WORLD_SIZE = 256,
         CHUNK_SIZE = 256,
         MAX_RENDER_DISTANCE = 7,
@@ -28,46 +28,71 @@ int window_width = 800, window_height = 600;
 
 bool active_chunks[WORLD_SIZE][WORLD_SIZE];
 vector<sf::Texture> textures(MAX_TEXTURES_COUNT); // Жоска экономим память, не храня спрайты
-
+sf::Font test_font;
+            
 void init_textures() {
+    string dir_path = "../textures/";
+#ifdef __linux__
+    dir_path = "./textures/";
+#endif
+    
     for (int i = 0; i < MAX_TEXTURES_COUNT; i++) {
-        string name = "../textures/" + std::to_string(i) + ".png";
+        string name = dir_path + std::to_string(i) + ".png";
         textures[i].loadFromFile(name);
     }
 }
 
 struct Game {
     sf::RenderWindow *window;
-
+    std::chrono::duration<float> time_passed;
+    std::chrono::time_point<std::chrono::system_clock> last_update_time;
+    float last_sleep_time = 10;
+    
     Game(sf::RenderWindow *n_window) : window{n_window} {
         std::srand(std::time(nullptr));
         chunks.resize(WORLD_SIZE, vector<Chunk>(WORLD_SIZE));
+	test_font.loadFromFile("Hack-Regular.ttf");
+	
+	for (int i = 0; i < WORLD_SIZE; ++i)
+	    for (int j = 0; j < WORLD_SIZE; ++j)
+		active_chunks[i][j] = false;
+	
+	last_update_time = std::chrono::system_clock::now();
     }
 
     struct Object : public sf::Sprite {
         Object(int n_x, int n_y, int n_id) :
                 x_coord{n_x}, y_coord{n_y}, id{n_id} {}
 
-        int id;
-        int x_coord, y_coord;
+        int x_coord, y_coord, id;
         json<string, string> parameters;
         int static_texture;
         vector<int> animated_texture;
 
         void draw(int player_x, int player_y) {
-
+	    return;
         }
     };
 
 
     struct MovableObject : public Object {
-        int speed, dx, dy;
+        int speed;
+	float dx, dy, actual_x_coord, actual_y_coord;
 
-        MovableObject(int x, int y, int id) : Object(x, y, id) {}
+        MovableObject(int x, int y, int id) : Object(x, y, id) {
+	    actual_x_coord = x;
+	    actual_y_coord = y;
+	}
 
-        void move() {
-            x_coord = (x_coord + speed * dx + WORLD_PIXEL_SIZE) % WORLD_PIXEL_SIZE;
-            y_coord = (y_coord + speed * dy + WORLD_PIXEL_SIZE) % WORLD_PIXEL_SIZE;
+        void move(std::chrono::duration<float> &time_passed) {
+	    actual_x_coord = actual_x_coord + speed * dx * time_passed.count();
+	    actual_y_coord = actual_y_coord + speed * dy * time_passed.count();
+	    while (actual_x_coord < 0) actual_x_coord += WORLD_PIXEL_SIZE;
+	    while (actual_y_coord < 0) actual_y_coord += WORLD_PIXEL_SIZE;
+	    while (actual_x_coord >= WORLD_PIXEL_SIZE) actual_x_coord -= WORLD_PIXEL_SIZE;
+	    while (actual_y_coord >= WORLD_PIXEL_SIZE) actual_y_coord -= WORLD_PIXEL_SIZE;
+	    x_coord = (int)actual_x_coord;
+	    y_coord = (int)actual_y_coord;
         }
 
     };
@@ -87,36 +112,41 @@ struct Game {
         Player() : MovableObject(0, 0, 0) {
             dx = 0;
             dy = 0;
-            speed = 5;
+            speed = 300;
+	    setTexture(textures[0]);
         };
 
         void update() {
-            if (direction == "up") setTexture(textures[0]);
-            else if (direction == "left") setTexture(textures[1]);
-            else if (direction == "down") setTexture(textures[2]);
-            else if (direction == "right") setTexture(textures[3]);
+	    walk = 1;
+	    if (d_up) {
+		if (d_right) { setTexture(textures[4]); dx = 0.7; dy = -0.7; }
+		else if (d_left) { setTexture(textures[5]); dx = -0.7; dy = -0.7; }
+		else { setTexture(textures[0]); dx = 0; dy = -1; }
+	    }
+	    else if (d_down) {
+		if (d_right) { setTexture(textures[7]); dx = 0.7; dy = 0.7; }
+		else if (d_left) { setTexture(textures[6]); dx = -0.7; dy = 0.7; }
+		else { setTexture(textures[2]); dx = 0; dy = 1; }
+	    }
+	    else if (d_right) { setTexture(textures[3]); dx = 1; dy = 0; }
+	    else if (d_left) { setTexture(textures[1]); dx = -1; dy = 0; }
+	    else { walk = 0; dx = 0; dy = 0; }
             setPosition(400, 300);
         }
 
         void draw(sf::RenderWindow *window) {
             window->draw(*this);
-            sf::Font test_font;
-            //test_font.loadFromFile("Hack-Regular.ttf");
-            sf::Text coords_text(std::to_string(x_coord) + ' ' + std::to_string(y_coord), test_font);
-            coords_text.setPosition(10, 10);
-            coords_text.setCharacterSize(18);
-            window->draw(coords_text);
         }
 
         Pack pack;
         Item left_hand_item, right_hand_item;
-        string direction = "down";
-
+	bool d_right = false, d_left = false, d_up = false, d_down = false;
+	
         int walk = 0;
         int attack = 0;
     };
 
-    Player player;
+    Player player{};
 
     static std::pair<int, int> get_window_coords(int x, int y, int player_x, int player_y){
         int nx = window_width / 2 - player_x + x, ny = window_height / 2 - player_y + y;
@@ -159,7 +189,7 @@ struct Game {
             x_coord = x, y_coord = y;
             std::ifstream f((".//chunks//" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str());
             color = { uint8_t(std::rand() % 256), uint8_t(std::rand() % 256), uint8_t(std::rand() % 256), 255 };
-            if (!f.is_open()) return;
+            if (!f.good()) return;
             int mobs_cnt;
             f >> mobs_cnt;
             for (int i = 0; i < mobs_cnt; ++i) {
@@ -178,8 +208,10 @@ struct Game {
         }
 
         void upload() {
+	    std::ofstream test((".//chunks//" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(), std::ios::in);
+	    if (!test.good()) return;
             std::ofstream f((".//chunks//" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(), std::ios::out | std::ios::trunc);
-            if (!f.is_open()) return;
+	    if (!f.good()) return;
             int mobs_cnt = mobs.size();
             f << mobs_cnt << '\n';
             for (int i = 0; i < mobs_cnt; ++i) {
@@ -212,42 +244,74 @@ struct Game {
         }
     };
 
+    struct Debug {
+	int frames_current_count = 0, frames_latest_count = 0;
+	std::time_t frames_time;
+	
+	void draw_player_coords(sf::RenderWindow *window, Player *player) {
+	    sf::Text coords_text(std::to_string(player->x_coord) + ' ' + std::to_string(player->y_coord), test_font);
+            coords_text.setPosition(10, 10);
+            coords_text.setCharacterSize(18);
+            window->draw(coords_text);
+	}
+
+	void draw_fps(sf::RenderWindow *window) {
+	    if (frames_time == std::time(nullptr)) ++frames_current_count;
+	    else {
+		frames_time = std::time(nullptr);
+		frames_latest_count = frames_current_count;
+		frames_current_count = 0;
+	    }
+	    sf::Text fps_text(std::to_string(frames_latest_count), test_font);
+	    fps_text.setPosition(200, 10);
+            fps_text.setCharacterSize(18);
+            window->draw(fps_text);
+	}
+    };
+
     const int max_fps = 60;
     vector<vector<Chunk>> chunks;
-
+    Debug debug{};
+    
     void update(sf::Event &event) {
         if (event.type == sf::Event::KeyPressed) {
             switch (event.key.code) {
                 case sf::Keyboard::A:
-                    player.walk = 1;
-                    player.direction = "left";
-                    player.dx = -1;
+                    player.d_left = true;
+		    player.d_right = false;
                     break;
                 case sf::Keyboard::D:
-                    player.walk = 1;
-                    player.direction = "right";
-                    player.dx = 1;
+		    player.d_right = true;
+                    player.d_left = false;
                     break;
                 case sf::Keyboard::W:
-                    player.walk = 1;
-                    player.direction = "up";
-                    player.dy = -1;
+                    player.d_up = true;
+		    player.d_down = false;
                     break;
                 case sf::Keyboard::S:
-                    player.walk = 1;
-                    player.direction = "down";
-                    player.dy = 1;
+		    player.d_down = true;
+                    player.d_up = false;
                     break;
                 default:
-                    break;
+		    break;
             }
+	    
         } else if (event.type == sf::Event::KeyReleased) {
-            if (event.key.code == sf::Keyboard::A || event.key.code == sf::Keyboard::D) {
-                player.dx = 0;
-                if (player.dy == 0) player.walk = 0;
-            } else {
-                player.dy = 0;
-                if (player.dx == 0) player.walk = 0;
+            switch (event.key.code) {
+                case sf::Keyboard::A:
+                    player.d_left = false;
+                    break;
+                case sf::Keyboard::D:
+		    player.d_right = false;
+                    break;
+                case sf::Keyboard::W:
+                    player.d_up = false;
+                    break;
+                case sf::Keyboard::S:
+		    player.d_down = false;
+                    break;
+                default:
+		    break;
             }
         }
 
@@ -255,18 +319,22 @@ struct Game {
     }
 
     void move() {
+        auto current_time = std::chrono::system_clock::now();
+	time_passed = current_time - last_update_time;
+	last_update_time = std::chrono::system_clock::now();
+	
         for (auto &row_chunk: chunks) {
             for (auto &chunk: row_chunk) {
                 for (auto &i: chunk.mobs) {
                     i.logic();
-                    i.move();
+                    i.move(time_passed);
                     //if (){ // TODO: проверка на то что моб клоун и ливнул из чанка
                     //
                     //}
                 }
             }
         }
-        player.move();
+        player.move(time_passed);
     }
 
 
@@ -286,18 +354,26 @@ struct Game {
                         active_chunks[nx][ny] = true;
                         chunks[nx][ny].load(nx, ny);
                     }
-
+		    
                     if (active_chunks[nx][ny]) {
                         chunks[nx][ny].draw(player.x_coord, player.y_coord, window);
-                        for (auto &i: chunks[i][j].mobs)
-                            i.draw(player.x_coord, player.y_coord);
-                        for (auto &i: chunks[i][j].objects)
-                            i.draw(player.x_coord, player.y_coord);
+                        for (auto &r: chunks[nx][ny].mobs)
+                            r.draw(player.x_coord, player.y_coord);
+                        for (auto &r: chunks[nx][ny].objects)
+			    r.draw(player.x_coord, player.y_coord);
                     }
                 }
             }
         }
         player.draw(window);
+	debug.draw_player_coords(window, &player);
+	debug.draw_fps(window);
+    }
+
+    float calculate_sleep_time() {
+	float full_sleep_time = time_passed.count() * 1000, mspf = 1000 / max_fps;
+        last_sleep_time = mspf + last_sleep_time - full_sleep_time;
+	return last_sleep_time;
     }
 
 };
