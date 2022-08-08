@@ -16,6 +16,7 @@
 using std::string, std::vector, std::cin, std::cout;
 
 const string dir_path = "../";
+
 const int
         MAX_TEXTURES_COUNT = 10,
         WORLD_SIZE = 256,
@@ -31,10 +32,12 @@ const int
 int window_width = 800, window_height = 600;
 
 bool active_chunks[WORLD_SIZE][WORLD_SIZE];
-vector<sf::Texture> textures(MAX_TEXTURES_COUNT); // Жоска экономим память, не храня спрайты
-vector<sf::Texture> item_textures(ITEMS_COUNT);
+sf::Texture textures[MAX_TEXTURES_COUNT]; // Жоска экономим память, не храня спрайты
+sf::Texture item_textures[ITEMS_COUNT];
 sf::Sprite active_slot_sprite, default_slot_sprite;
 sf::Font test_font;
+sf::Font cnt_font;
+
 
 void init_textures() {
 
@@ -63,6 +66,7 @@ struct Game {
         std::srand(std::time(nullptr));
         chunks.resize(WORLD_SIZE, vector<Chunk>(WORLD_SIZE));
         test_font.loadFromFile(dir_path + "Hack-Regular.ttf");
+        cnt_font.loadFromFile(dir_path+"fonts/"+"Vogue Bold.ttf");
 
         for (int i = 0; i < WORLD_SIZE; ++i)
             for (int j = 0; j < WORLD_SIZE; ++j)
@@ -126,34 +130,49 @@ struct Game {
                        (y_mouse >= y_pix && y_mouse < y_pix + SLOT_PIXEL_SIZE);
             }
 
-            void draw(sf::RenderWindow *window) {
+            void draw(sf::RenderWindow *window, bool draw_slot_icon=true) const {
                 if (is_active) {
-                    active_slot_sprite.setPosition({(float) x_pix, (float) y_pix});
+                    active_slot_sprite.setPosition((float) x_pix, (float) y_pix);
                     window->draw(active_slot_sprite);
-                } else {
-                    default_slot_sprite.setPosition({(float) x_pix, (float) y_pix});
+                } else if(draw_slot_icon){
+                    default_slot_sprite.setPosition((float) x_pix, (float) y_pix);
                     window->draw(default_slot_sprite);
                 }
                 if (item.id != -1) {
                     sf::Sprite item_sprite;
                     item_sprite.setTexture(item_textures[item.id]);
-                    item_sprite.setPosition({(float) x_pix, (float) y_pix});
+                    item_sprite.setPosition((float)x_pix, (float)y_pix);
                     window->draw(item_sprite);
+                    if(item.max_stack_size != 1) {
+                        sf::Text text_count(std::to_string(cnt), cnt_font);
+                        text_count.setCharacterSize(SLOT_PIXEL_SIZE/2);
+                        text_count.setFillColor(sf::Color(0, 0, 0));
+                        text_count.setPosition((float) x_pix + SLOT_PIXEL_SIZE / 2 ,
+                                               (float) y_pix + SLOT_PIXEL_SIZE * 3 / 7);
+                        window->draw(text_count);
+                    }
                 }
+            }
+
+            void swap_item(Slot& other){
+                std::swap(other.item, item);
+                std::swap(other.cnt, cnt);
             }
         };
 
+        Slot invisible_mouse_slot;
         Slot left_hand, right_hand;
         Slot fast_pack[FAST_PACK_SIZE];
         Slot cock_pack[PACK_HEIGHT][PACK_WIDTH];
         Slot armor[4];
         std::pair<int, int> active_slot = {0, 0}; // default nums
-        bool is_cock_pack_open = 0;
+        bool is_cock_pack_open = false;
 
         Inventory() {
             active_slot_sprite.setTexture(textures[9]);
             default_slot_sprite.setTexture(textures[8]);
-            left_hand.item.id = 0;
+            left_hand.item.id = 0; // test
+            left_hand.cnt = 10;
             left_hand.x_pix = SLOT_PIXEL_SIZE / 2;
             left_hand.y_pix = 2 * SLOT_PIXEL_SIZE;
             right_hand.x_pix = SLOT_PIXEL_SIZE / 2 + SLOT_PIXEL_SIZE + 2 * SLOT_PIXEL_SIZE;
@@ -179,46 +198,46 @@ struct Game {
 
         void left_swap() {
             if (active_slot.first == 0) {
-                std::swap(left_hand.item, fast_pack[active_slot.second].item);
+                left_hand.swap_item(fast_pack[active_slot.second]);
             } else if (active_slot.first == 1) {
-                std::swap(left_hand.item,
-                          cock_pack[active_slot.second / PACK_WIDTH][active_slot.second % PACK_WIDTH].item);
+                left_hand.swap_item(cock_pack[active_slot.second / PACK_WIDTH][active_slot.second % PACK_WIDTH]);
             } else if (active_slot.first == 2) {
-                std::swap(left_hand.item, armor[active_slot.second].item);
+                left_hand.swap_item(armor[active_slot.second]);
             }
         }
 
         void right_swap() {
             if (active_slot.first == 0) {
-                std::swap(right_hand.item, fast_pack[active_slot.second].item);
+                right_hand.swap_item(fast_pack[active_slot.second]);
             } else if (active_slot.first == 1) {
-                std::swap(right_hand.item,
-                          cock_pack[active_slot.second / PACK_WIDTH][active_slot.second % PACK_WIDTH].item);
+                right_hand.swap_item(cock_pack[active_slot.second / PACK_WIDTH][active_slot.second % PACK_WIDTH]);
             } else if (active_slot.first == 2) {
                 std::swap(right_hand.item, armor[active_slot.second].item);
+                std::swap(right_hand.cnt, armor[active_slot.second].cnt);
             }
         }
 
         void swap_hands() {
-            std::swap(right_hand.item, left_hand.item);
+            left_hand.swap_item(right_hand);
         }
 
         void draw(sf::RenderWindow *window) {
             left_hand.draw(window);
             right_hand.draw(window);
-            for (int i = 0; i < 4; i++) {
-                armor[i].draw(window);
+            for (const auto & i : armor) {
+                i.draw(window);
             }
-            for (int i = 0; i < FAST_PACK_SIZE; i++) {
-                fast_pack[i].draw(window);
+            for (const auto & i : fast_pack) {
+                i.draw(window);
             }
             if (is_cock_pack_open) {
-                for (int i = 0; i < PACK_HEIGHT; i++) {
-                    for (int j = 0; j < PACK_WIDTH; j++) {
-                        cock_pack[i][j].draw(window);
+                for (auto & i : cock_pack) {
+                    for (const auto & j : i) {
+                        j.draw(window);
                     }
                 }
             }
+            invisible_mouse_slot.draw(window);
         }
 
         Slot &get_active_slot() {
@@ -358,7 +377,6 @@ struct Game {
         return {nx, ny};
     }
 
-
     struct Mob : public MovableObject {
         vector<int> animation_textures;
         int stop_texture;
@@ -405,11 +423,11 @@ struct Game {
 
         void upload() {
             std::ofstream test(
-                    (".//chunks//" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
+                    (dir_path+"chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
                     std::ios::in);
             if (!test.good()) return;
             std::ofstream f(
-                    (".//chunks//" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
+                    (dir_path+"chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
                     std::ios::out | std::ios::trunc);
             if (!f.good()) return;
             int mobs_cnt = mobs.size();
@@ -431,7 +449,7 @@ struct Game {
             int y = y_coord * CHUNK_SIZE % WORLD_PIXEL_SIZE;
             auto xy = get_window_coords(x, y, player_x, player_y);
             x = xy.first, y = xy.second;
-            shape.setPosition({(float) x, (float) y});
+            shape.setPosition((float) x, (float) y);
             window->draw(shape);
         }
 

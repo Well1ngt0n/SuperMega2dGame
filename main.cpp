@@ -2,7 +2,7 @@
 #include "engine.h"
 
 int main() {
-    sf::RenderWindow window(sf::VideoMode(800, 600), "GameBebra beta", sf::Style::Fullscreen);
+    sf::RenderWindow window(sf::VideoMode(800, 600), "GameBebra beta"/*, sf::Style::Fullscreen*/);
     init_textures();
     Game game(&window);
     window.clear({0, 0, 100, 255});
