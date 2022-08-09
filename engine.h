@@ -66,7 +66,7 @@ struct Game {
         std::srand(std::time(nullptr));
         chunks.resize(WORLD_SIZE, vector<Chunk>(WORLD_SIZE));
         test_font.loadFromFile(dir_path + "Hack-Regular.ttf");
-        cnt_font.loadFromFile(dir_path+"fonts/"+"Vogue Bold.ttf");
+        cnt_font.loadFromFile(dir_path + "fonts/" + "Vogue Bold.ttf");
 
         for (int i = 0; i < WORLD_SIZE; ++i)
             for (int j = 0; j < WORLD_SIZE; ++j)
@@ -114,9 +114,11 @@ struct Game {
 
     struct Inventory {
         struct Item {
-            int id = -1;
-            int max_stack_size = 256;
+            int id;
+            int max_stack_size;
             json<string, string> params;
+
+            Item() : id(-1), max_stack_size(64) {}
         };
 
         struct Slot {
@@ -130,31 +132,34 @@ struct Game {
                        (y_mouse >= y_pix && y_mouse < y_pix + SLOT_PIXEL_SIZE);
             }
 
-            void draw(sf::RenderWindow *window, bool draw_slot_icon=true) const {
+            void draw(sf::RenderWindow *window, bool draw_slot_icon = true) const {
                 if (is_active) {
                     active_slot_sprite.setPosition((float) x_pix, (float) y_pix);
                     window->draw(active_slot_sprite);
-                } else if(draw_slot_icon){
+                } else if (draw_slot_icon) {
                     default_slot_sprite.setPosition((float) x_pix, (float) y_pix);
                     window->draw(default_slot_sprite);
                 }
                 if (item.id != -1) {
                     sf::Sprite item_sprite;
                     item_sprite.setTexture(item_textures[item.id]);
-                    item_sprite.setPosition((float)x_pix, (float)y_pix);
+                    item_sprite.setPosition((float) (x_pix - (draw_slot_icon ? 0 : SLOT_PIXEL_SIZE * 3 / 4)),
+                                            (float) (y_pix - (draw_slot_icon ? 0 : SLOT_PIXEL_SIZE * 3 / 4)));
                     window->draw(item_sprite);
-                    if(item.max_stack_size != 1) {
+                    if (item.max_stack_size != 1) {
                         sf::Text text_count(std::to_string(cnt), cnt_font);
-                        text_count.setCharacterSize(SLOT_PIXEL_SIZE/2);
+                        text_count.setCharacterSize(SLOT_PIXEL_SIZE / 2);
                         text_count.setFillColor(sf::Color(0, 0, 0));
-                        text_count.setPosition((float) x_pix + SLOT_PIXEL_SIZE / 2 ,
-                                               (float) y_pix + SLOT_PIXEL_SIZE * 3 / 7);
+                        text_count.setPosition(
+                                (float) (x_pix + SLOT_PIXEL_SIZE / 2 - (draw_slot_icon ? 0 : SLOT_PIXEL_SIZE * 3 / 4)),
+                                (float) (y_pix + SLOT_PIXEL_SIZE * 3 / 7 -
+                                         (draw_slot_icon ? 0 : SLOT_PIXEL_SIZE * 3 / 4)));
                         window->draw(text_count);
                     }
                 }
             }
 
-            void swap_item(Slot& other){
+            void swap_item(Slot &other) {
                 std::swap(other.item, item);
                 std::swap(other.cnt, cnt);
             }
@@ -167,12 +172,16 @@ struct Game {
         Slot armor[4];
         std::pair<int, int> active_slot = {0, 0}; // default nums
         bool is_cock_pack_open = false;
+        bool is_item_in_mouse = false;
 
         Inventory() {
             active_slot_sprite.setTexture(textures[9]);
             default_slot_sprite.setTexture(textures[8]);
+            invisible_mouse_slot.item.id = 0; // test
+            invisible_mouse_slot.cnt = 10;
             left_hand.item.id = 0; // test
-            left_hand.cnt = 10;
+            left_hand.cnt = 56;
+            is_item_in_mouse = true;
             left_hand.x_pix = SLOT_PIXEL_SIZE / 2;
             left_hand.y_pix = 2 * SLOT_PIXEL_SIZE;
             right_hand.x_pix = SLOT_PIXEL_SIZE / 2 + SLOT_PIXEL_SIZE + 2 * SLOT_PIXEL_SIZE;
@@ -224,20 +233,22 @@ struct Game {
         void draw(sf::RenderWindow *window) {
             left_hand.draw(window);
             right_hand.draw(window);
-            for (const auto & i : armor) {
+            for (const auto &i: armor) {
                 i.draw(window);
             }
-            for (const auto & i : fast_pack) {
+            for (const auto &i: fast_pack) {
                 i.draw(window);
             }
             if (is_cock_pack_open) {
-                for (auto & i : cock_pack) {
-                    for (const auto & j : i) {
+                for (auto &i: cock_pack) {
+                    for (const auto &j: i) {
                         j.draw(window);
                     }
                 }
             }
-            invisible_mouse_slot.draw(window);
+            if (is_item_in_mouse) {
+                invisible_mouse_slot.draw(window, false);
+            }
         }
 
         Slot &get_active_slot() {
@@ -259,13 +270,79 @@ struct Game {
             setTexture(textures[0]);
         };
 
-        int click_in_inventory(int x, int y) {
-            if (inventory.left_hand.is_pressed(x, y)) return 1;
-            if (inventory.right_hand.is_pressed(x, y)) return 2;
+        int left_click_in_inventory(int x, int y) {
+            if (inventory.left_hand.is_pressed(x, y)) {
+                if (inventory.is_item_in_mouse) {
+                    if (inventory.left_hand.item.id == inventory.invisible_mouse_slot.item.id &&
+                        inventory.left_hand.item.max_stack_size != 1) {
+                        int &cnt1 = inventory.left_hand.cnt, &cnt2 = inventory.invisible_mouse_slot.cnt;
+                        int mx = inventory.left_hand.item.max_stack_size;
+                        if (cnt1 + cnt2 <= mx) {
+                            cnt1 += cnt2;
+                            inventory.invisible_mouse_slot.item = Inventory::Item();
+                        } else {
+                            cnt2 = cnt1 + cnt2 - mx;
+                            cnt1 = mx;
+                        }
+                    } else {
+                        inventory.is_item_in_mouse = (inventory.left_hand.item.id != -1);
+                        inventory.invisible_mouse_slot.swap_item(inventory.left_hand);
+                    }
+                } else {
+                    inventory.is_item_in_mouse = (inventory.left_hand.item.id != -1);
+                    inventory.invisible_mouse_slot.swap_item(inventory.left_hand);
+                }
+                return 1;
+            }
+            if (inventory.right_hand.is_pressed(x, y)) {
+                if (inventory.is_item_in_mouse) {
+                    if (inventory.right_hand.item.id == inventory.invisible_mouse_slot.item.id &&
+                        inventory.right_hand.item.max_stack_size != 1) {
+                        int &cnt1 = inventory.right_hand.cnt, &cnt2 = inventory.invisible_mouse_slot.cnt;
+                        int mx = inventory.right_hand.item.max_stack_size;
+                        if (cnt1 + cnt2 <= mx) {
+                            cnt1 += cnt2;
+                            inventory.invisible_mouse_slot.item = Inventory::Item();
+                        } else {
+                            cnt2 = cnt1 + cnt2 - mx;
+                            cnt1 = mx;
+                        }
+                    } else {
+                        inventory.is_item_in_mouse = (inventory.right_hand.item.id != -1);
+                        inventory.invisible_mouse_slot.swap_item(inventory.right_hand);
+                    }
+                } else {
+                    inventory.is_item_in_mouse = (inventory.right_hand.item.id != -1);
+                    inventory.invisible_mouse_slot.swap_item(inventory.right_hand);
+                }
+                return 2;
+            }
             bool flag = false;
             for (int i = 0; i < 4; i++) {
                 if (inventory.armor[i].is_pressed(x, y)) {
                     flag = true;
+                    if (!inventory.is_item_in_mouse) {
+                        if (inventory.armor[i].is_active) {
+                            inventory.is_item_in_mouse = true;
+                            inventory.invisible_mouse_slot.swap_item(inventory.armor[i]);
+                        }
+                    } else {
+                        if (inventory.armor[i].item.id == inventory.invisible_mouse_slot.item.id &&
+                            inventory.armor[i].item.max_stack_size != 1) {
+                            int &cnt1 = inventory.armor[i].cnt, &cnt2 = inventory.invisible_mouse_slot.cnt;
+                            int mx = inventory.armor[i].item.max_stack_size;
+                            if (cnt1 + cnt2 <= mx) {
+                                cnt1 += cnt2;
+                                inventory.invisible_mouse_slot.item = Inventory::Item();
+                            } else {
+                                cnt2 = cnt1 + cnt2 - mx;
+                                cnt1 = mx;
+                            }
+                        } else {
+                            inventory.is_item_in_mouse = (inventory.armor[i].item.id != -1);
+                            inventory.invisible_mouse_slot.swap_item(inventory.armor[i]);
+                        }
+                    }
                     inventory.get_active_slot().is_active = false;
                     inventory.armor[i].is_active = true;
                     inventory.active_slot = {2, i};
@@ -276,6 +353,28 @@ struct Game {
             for (int i = 0; i < FAST_PACK_SIZE; i++) {
                 if (inventory.fast_pack[i].is_pressed(x, y)) {
                     flag = true;
+                    if (!inventory.is_item_in_mouse) {
+                        if (inventory.fast_pack[i].is_active) {
+                            inventory.is_item_in_mouse = true;
+                            inventory.invisible_mouse_slot.swap_item(inventory.fast_pack[i]);
+                        }
+                    } else {
+                        if (inventory.fast_pack[i].item.id == inventory.invisible_mouse_slot.item.id &&
+                            inventory.fast_pack[i].item.max_stack_size != 1) {
+                            int &cnt1 = inventory.fast_pack[i].cnt, &cnt2 = inventory.invisible_mouse_slot.cnt;
+                            int mx = inventory.fast_pack[i].item.max_stack_size;
+                            if (cnt1 + cnt2 <= mx) {
+                                cnt1 += cnt2;
+                                inventory.invisible_mouse_slot.item = Inventory::Item();
+                            } else {
+                                cnt2 = cnt1 + cnt2 - mx;
+                                cnt1 = mx;
+                            }
+                        } else {
+                            inventory.is_item_in_mouse = (inventory.fast_pack[i].item.id != -1);
+                            inventory.invisible_mouse_slot.swap_item(inventory.fast_pack[i]);
+                        }
+                    }
                     inventory.get_active_slot().is_active = false;
                     inventory.fast_pack[i].is_active = true;
                     inventory.active_slot = {0, i};
@@ -288,6 +387,28 @@ struct Game {
                     for (int j = 0; j < PACK_WIDTH; j++) {
                         if (inventory.cock_pack[i][j].is_pressed(x, y)) {
                             flag = true;
+                            if (!inventory.is_item_in_mouse) {
+                                if (inventory.cock_pack[i][j].is_active) {
+                                    inventory.is_item_in_mouse = true;
+                                    inventory.invisible_mouse_slot.swap_item(inventory.cock_pack[i][j]);
+                                }
+                            } else {
+                                if (inventory.cock_pack[i][j].item.id == inventory.invisible_mouse_slot.item.id &&
+                                    inventory.cock_pack[i][j].item.max_stack_size != 1) {
+                                    int &cnt1 = inventory.cock_pack[i][j].cnt, &cnt2 = inventory.invisible_mouse_slot.cnt;
+                                    int mx = inventory.cock_pack[i][j].item.max_stack_size;
+                                    if (cnt1 + cnt2 <= mx) {
+                                        cnt1 += cnt2;
+                                        inventory.invisible_mouse_slot.item = Inventory::Item();
+                                    } else {
+                                        cnt2 = cnt1 + cnt2 - mx;
+                                        cnt1 = mx;
+                                    }
+                                } else {
+                                    inventory.is_item_in_mouse = (inventory.cock_pack[i][j].item.id != -1);
+                                    inventory.invisible_mouse_slot.swap_item(inventory.cock_pack[i][j]);
+                                }
+                            }
                             inventory.get_active_slot().is_active = false;
                             inventory.cock_pack[i][j].is_active = true;
                             inventory.active_slot = {1, i * PACK_WIDTH + j};
@@ -423,11 +544,11 @@ struct Game {
 
         void upload() {
             std::ofstream test(
-                    (dir_path+"chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
+                    (dir_path + "chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
                     std::ios::in);
             if (!test.good()) return;
             std::ofstream f(
-                    (dir_path+"chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
+                    (dir_path + "chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
                     std::ios::out | std::ios::trunc);
             if (!f.good()) return;
             int mobs_cnt = mobs.size();
@@ -602,11 +723,14 @@ struct Game {
             }
         } else if (event.type == sf::Event::MouseButtonPressed) {
             if (event.mouseButton.button == sf::Mouse::Left) {
-                if (player.click_in_inventory(event.mouseButton.x, event.mouseButton.y));
+                if (player.left_click_in_inventory(event.mouseButton.x, event.mouseButton.y));
                 else {
-
+                    // обработка лкм если клик пришелся не на слоты инвентаря
                 }
             }
+        } else if (event.type == sf::Event::MouseMoved) {
+            player.inventory.invisible_mouse_slot.x_pix = event.mouseMove.x;
+            player.inventory.invisible_mouse_slot.y_pix = event.mouseMove.y;
         }
 
         player.update();
