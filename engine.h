@@ -27,7 +27,7 @@ const int
         PACK_HEIGHT = 3,
         FAST_PACK_SIZE = 10,
         SLOT_PIXEL_SIZE = 32,
-        ITEMS_COUNT = 1;
+        ITEMS_COUNT = 2;
 
 int window_width = 800, window_height = 600;
 
@@ -177,7 +177,7 @@ struct Game {
         Inventory() {
             active_slot_sprite.setTexture(textures[9]);
             default_slot_sprite.setTexture(textures[8]);
-            invisible_mouse_slot.item.id = 0; // test
+            invisible_mouse_slot.item.id = 1; // test
             invisible_mouse_slot.cnt = 10;
             left_hand.item.id = 0; // test
             left_hand.cnt = 56;
@@ -280,6 +280,7 @@ struct Game {
                         if (cnt1 + cnt2 <= mx) {
                             cnt1 += cnt2;
                             inventory.invisible_mouse_slot.item = Inventory::Item();
+                            inventory.is_item_in_mouse = false;
                         } else {
                             cnt2 = cnt1 + cnt2 - mx;
                             cnt1 = mx;
@@ -303,6 +304,7 @@ struct Game {
                         if (cnt1 + cnt2 <= mx) {
                             cnt1 += cnt2;
                             inventory.invisible_mouse_slot.item = Inventory::Item();
+                            inventory.is_item_in_mouse = false;
                         } else {
                             cnt2 = cnt1 + cnt2 - mx;
                             cnt1 = mx;
@@ -334,6 +336,7 @@ struct Game {
                             if (cnt1 + cnt2 <= mx) {
                                 cnt1 += cnt2;
                                 inventory.invisible_mouse_slot.item = Inventory::Item();
+                                inventory.is_item_in_mouse = false;
                             } else {
                                 cnt2 = cnt1 + cnt2 - mx;
                                 cnt1 = mx;
@@ -366,6 +369,7 @@ struct Game {
                             if (cnt1 + cnt2 <= mx) {
                                 cnt1 += cnt2;
                                 inventory.invisible_mouse_slot.item = Inventory::Item();
+                                inventory.is_item_in_mouse = false;
                             } else {
                                 cnt2 = cnt1 + cnt2 - mx;
                                 cnt1 = mx;
@@ -400,6 +404,7 @@ struct Game {
                                     if (cnt1 + cnt2 <= mx) {
                                         cnt1 += cnt2;
                                         inventory.invisible_mouse_slot.item = Inventory::Item();
+                                        inventory.is_item_in_mouse = false;
                                     } else {
                                         cnt2 = cnt1 + cnt2 - mx;
                                         cnt1 = mx;
@@ -419,7 +424,217 @@ struct Game {
             }
             if (flag) return 5;
             return 0;
+        }
 
+        int right_click_in_inventory(int x, int y) {
+            if (inventory.left_hand.is_pressed(x, y)) {
+                if (inventory.is_item_in_mouse) {
+                    if (inventory.left_hand.item.id == inventory.invisible_mouse_slot.item.id &&
+                        inventory.left_hand.item.max_stack_size != 1) {
+                        int &cnt1 = inventory.left_hand.cnt, &cnt2 = inventory.invisible_mouse_slot.cnt;
+                        int mx = inventory.left_hand.item.max_stack_size;
+                        if (cnt1 + 1 <= mx) {
+                            cnt1 += 1;
+                            cnt2 -= 1;
+                            if (cnt2 == 0) {
+                                inventory.invisible_mouse_slot.item = Inventory::Item();
+                                inventory.is_item_in_mouse = false;
+                            }
+                        } // else do nothing
+                    } else if (inventory.left_hand.item.id == -1) {
+                        inventory.left_hand.item = inventory.invisible_mouse_slot.item;
+                        inventory.left_hand.cnt = 1;
+                        inventory.invisible_mouse_slot.cnt -= 1;
+                        if (inventory.invisible_mouse_slot.cnt == 0) {
+                            inventory.invisible_mouse_slot.item = Inventory::Item();
+                            inventory.is_item_in_mouse = false;
+                        }
+                    }
+                } else if (inventory.left_hand.item.id != -1) {
+                    int &cnt = inventory.left_hand.cnt;
+                    int to_mouse = -~cnt >> 1;
+                    cnt -= to_mouse;
+                    inventory.invisible_mouse_slot.item = inventory.left_hand.item;
+                    inventory.invisible_mouse_slot.cnt = to_mouse;
+                    inventory.is_item_in_mouse = true;
+                    if (cnt == 0) {
+                        inventory.left_hand.item = Inventory::Item();
+                    }
+                }
+                return 1;
+            }
+            if (inventory.right_hand.is_pressed(x, y)) {
+                if (inventory.is_item_in_mouse) {
+                    if (inventory.right_hand.item.id == inventory.invisible_mouse_slot.item.id &&
+                        inventory.right_hand.item.max_stack_size != 1) {
+                        int &cnt1 = inventory.right_hand.cnt, &cnt2 = inventory.invisible_mouse_slot.cnt;
+                        int mx = inventory.right_hand.item.max_stack_size;
+                        if (cnt1 + 1 <= mx) {
+                            cnt1 += 1;
+                            cnt2 -= 1;
+                            if (cnt2 == 0) {
+                                inventory.invisible_mouse_slot.item = Inventory::Item();
+                                inventory.is_item_in_mouse = false;
+                            }
+                        } // else do nothing
+                    } else if (inventory.right_hand.item.id == -1) {
+                        inventory.right_hand.item = inventory.invisible_mouse_slot.item;
+                        inventory.right_hand.cnt = 1;
+                        inventory.invisible_mouse_slot.cnt -= 1;
+                        if (inventory.invisible_mouse_slot.cnt == 0) {
+                            inventory.invisible_mouse_slot.item = Inventory::Item();
+                            inventory.is_item_in_mouse = false;
+                        }
+                    }
+                } else if (inventory.right_hand.item.id != -1) {
+                    int &cnt = inventory.right_hand.cnt;
+                    int to_mouse = -~cnt >> 1;
+                    cnt -= to_mouse;
+                    inventory.invisible_mouse_slot.item = inventory.right_hand.item;
+                    inventory.invisible_mouse_slot.cnt = to_mouse;
+                    inventory.is_item_in_mouse = true;
+                    if (cnt == 0) {
+                        inventory.right_hand.item = Inventory::Item();
+                    }
+                }
+                return 2;
+            }
+
+            bool flag = false;
+            for (int i = 0; i < 4; i++) {
+                if (inventory.armor[i].is_pressed(x, y)) {
+                    flag = true;
+                    if (inventory.is_item_in_mouse) {
+                        if (inventory.armor[i].item.id == inventory.invisible_mouse_slot.item.id &&
+                            inventory.armor[i].item.max_stack_size != 1) {
+                            int &cnt1 = inventory.armor[i].cnt, &cnt2 = inventory.invisible_mouse_slot.cnt;
+                            int mx = inventory.armor[i].item.max_stack_size;
+                            if (cnt1 + 1 <= mx) {
+                                cnt1 += 1;
+                                cnt2 -= 1;
+                                if(cnt2 == 0){
+                                    inventory.invisible_mouse_slot.item = Inventory::Item();
+                                    inventory.is_item_in_mouse = false;
+                                }
+                            } // else do nothing
+                        } else if(inventory.armor[i].item.id == -1){
+                            inventory.armor[i].item = inventory.invisible_mouse_slot.item;
+                            inventory.armor[i].cnt = 1;
+                            inventory.invisible_mouse_slot.cnt -= 1;
+                            if(inventory.invisible_mouse_slot.cnt == 0){
+                                inventory.invisible_mouse_slot.item = Inventory::Item();
+                                inventory.is_item_in_mouse = false;
+                            }
+                        }
+                    } else if(inventory.armor[i].item.id != -1 && inventory.armor[i].is_active){
+                        int& cnt = inventory.armor[i].cnt;
+                        int to_mouse = -~cnt>>1;
+                        cnt -= to_mouse;
+                        inventory.invisible_mouse_slot.item = inventory.armor[i].item;
+                        inventory.invisible_mouse_slot.cnt = to_mouse;
+                        inventory.is_item_in_mouse = true;
+                        if(cnt == 0){
+                            inventory.armor[i].item = Inventory::Item();
+                        }
+                    }
+                    inventory.get_active_slot().is_active = false;
+                    inventory.armor[i].is_active = true;
+                    inventory.active_slot = {2, i};
+                    break;
+                }
+            }
+            if (flag) return 3;
+            for (int i = 0; i < FAST_PACK_SIZE; i++) {
+                if (inventory.fast_pack[i].is_pressed(x, y)) {
+                    flag = true;
+                    if (inventory.is_item_in_mouse) {
+                        if (inventory.fast_pack[i].item.id == inventory.invisible_mouse_slot.item.id &&
+                            inventory.fast_pack[i].item.max_stack_size != 1) {
+                            int &cnt1 = inventory.fast_pack[i].cnt, &cnt2 = inventory.invisible_mouse_slot.cnt;
+                            int mx = inventory.fast_pack[i].item.max_stack_size;
+                            if (cnt1 + 1 <= mx) {
+                                cnt1 += 1;
+                                cnt2 -= 1;
+                                if(cnt2 == 0){
+                                    inventory.invisible_mouse_slot.item = Inventory::Item();
+                                    inventory.is_item_in_mouse = false;
+                                }
+                            } // else do nothing
+                        } else if(inventory.fast_pack[i].item.id == -1){
+                            inventory.fast_pack[i].item = inventory.invisible_mouse_slot.item;
+                            inventory.fast_pack[i].cnt = 1;
+                            inventory.invisible_mouse_slot.cnt -= 1;
+                            if(inventory.invisible_mouse_slot.cnt == 0){
+                                inventory.invisible_mouse_slot.item = Inventory::Item();
+                                inventory.is_item_in_mouse = false;
+                            }
+                        }
+                    } else if(inventory.fast_pack[i].item.id != -1 && inventory.fast_pack[i].is_active){
+                        int& cnt = inventory.fast_pack[i].cnt;
+                        int to_mouse = -~cnt>>1;
+                        cnt -= to_mouse;
+                        inventory.invisible_mouse_slot.item = inventory.fast_pack[i].item;
+                        inventory.invisible_mouse_slot.cnt = to_mouse;
+                        inventory.is_item_in_mouse = true;
+                        if(cnt == 0){
+                            inventory.fast_pack[i].item = Inventory::Item();
+                        }
+                    }
+                    inventory.get_active_slot().is_active = false;
+                    inventory.fast_pack[i].is_active = true;
+                    inventory.active_slot = {0, i};
+                    break;
+                }
+            }
+            if (flag) return 4;
+            if (inventory.is_cock_pack_open) {
+                for (int i = 0; i < PACK_HEIGHT; i++) {
+                    for (int j = 0; j < PACK_WIDTH; j++) {
+                        if (inventory.cock_pack[i][j].is_pressed(x, y)) {
+                            flag = true;
+                            if (inventory.is_item_in_mouse) {
+                                if (inventory.cock_pack[i][j].item.id == inventory.invisible_mouse_slot.item.id &&
+                                    inventory.cock_pack[i][j].item.max_stack_size != 1) {
+                                    int &cnt1 = inventory.cock_pack[i][j].cnt, &cnt2 = inventory.invisible_mouse_slot.cnt;
+                                    int mx = inventory.cock_pack[i][j].item.max_stack_size;
+                                    if (cnt1 + 1 <= mx) {
+                                        cnt1 += 1;
+                                        cnt2 -= 1;
+                                        if(cnt2 == 0){
+                                            inventory.invisible_mouse_slot.item = Inventory::Item();
+                                            inventory.is_item_in_mouse = false;
+                                        }
+                                    } // else do nothing
+                                } else if(inventory.cock_pack[i][j].item.id == -1){
+                                    inventory.cock_pack[i][j].item = inventory.invisible_mouse_slot.item;
+                                    inventory.cock_pack[i][j].cnt = 1;
+                                    inventory.invisible_mouse_slot.cnt -= 1;
+                                    if(inventory.invisible_mouse_slot.cnt == 0){
+                                        inventory.invisible_mouse_slot.item = Inventory::Item();
+                                        inventory.is_item_in_mouse = false;
+                                    }
+                                }
+                            } else if(inventory.cock_pack[i][j].item.id != -1 && inventory.cock_pack[i][j].is_active){
+                                int& cnt = inventory.cock_pack[i][j].cnt;
+                                int to_mouse = -~cnt>>1;
+                                cnt -= to_mouse;
+                                inventory.invisible_mouse_slot.item = inventory.cock_pack[i][j].item;
+                                inventory.invisible_mouse_slot.cnt = to_mouse;
+                                inventory.is_item_in_mouse = true;
+                                if(cnt == 0){
+                                    inventory.cock_pack[i][j].item = Inventory::Item();
+                                }
+                            }
+                            inventory.get_active_slot().is_active = false;
+                            inventory.cock_pack[i][j].is_active = true;
+                            inventory.active_slot = {1, i*PACK_WIDTH+j};
+                            break;
+                        }
+                    }
+                }
+            }
+            if (flag) return 5;
+            return 0;
         }
 
         void update() {
@@ -724,6 +939,11 @@ struct Game {
         } else if (event.type == sf::Event::MouseButtonPressed) {
             if (event.mouseButton.button == sf::Mouse::Left) {
                 if (player.left_click_in_inventory(event.mouseButton.x, event.mouseButton.y));
+                else {
+                    // обработка лкм если клик пришелся не на слоты инвентаря
+                }
+            } else if (event.mouseButton.button == sf::Mouse::Right) {
+                if (player.right_click_in_inventory(event.mouseButton.x, event.mouseButton.y));
                 else {
                     // обработка лкм если клик пришелся не на слоты инвентаря
                 }
