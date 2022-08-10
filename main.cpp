@@ -2,14 +2,14 @@
 #include "engine.h"
 
 int main() {
-    sf::RenderWindow window(sf::VideoMode(800, 600), "GameBebra beta"/*, sf::Style::Fullscreen*/);
+    sf::RenderWindow window(sf::VideoMode(window_width, window_height), "GameBebra beta"/*, sf::Style::Fullscreen*/);
     init_textures();
     Game game(&window);
     window.clear({0, 0, 100, 255});
     window.display();
     int ind = 0;
     while (window.isOpen()) {
-        sf::Event event;
+        sf::Event event{};
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed) {
                 window.close();
@@ -25,7 +25,7 @@ int main() {
         game.move();
         game.draw();
         window.display();
-        sf::sleep(sf::Time(sf::milliseconds(game.calculate_sleep_time())));
+        sf::sleep(sf::Time(sf::milliseconds((int)game.calculate_sleep_time())));
     }
     return 0;
 }
