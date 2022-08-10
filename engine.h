@@ -13,7 +13,6 @@
 // #include "rapidjson/writer.h"
 // #include "rapidjson/stringbuffer.h"
 
-using std::string, std::vector, std::cin, std::cout;
 
 bool active_chunks[WORLD_SIZE][WORLD_SIZE];
 
@@ -29,9 +28,9 @@ struct Game {
         test_font.loadFromFile(dir_path + "Hack-Regular.ttf");
         cnt_font.loadFromFile(dir_path + "fonts/" + "Vogue Bold.ttf");
 
-        for (int i = 0; i < WORLD_SIZE; ++i)
-            for (int j = 0; j < WORLD_SIZE; ++j)
-                active_chunks[i][j] = false;
+        for (auto & active_chunk : active_chunks)
+            for (bool & j : active_chunk)
+                j = false;
 
         last_update_time = std::chrono::system_clock::now();
     }
@@ -42,7 +41,7 @@ struct Game {
 
         int x_coord, y_coord, id;
         json<string, string> parameters;
-        int static_texture;
+        int static_texture{};
         vector<int> animated_texture;
 
         void draw(int player_x, int player_y) {
@@ -52,17 +51,17 @@ struct Game {
 
 
     struct MovableObject : public Object {
-        int speed;
-        float dx, dy, actual_x_coord, actual_y_coord;
+        int speed{};
+        float dx{}, dy{}, actual_x_coord, actual_y_coord;
 
         MovableObject(int x, int y, int id) : Object(x, y, id) {
-            actual_x_coord = x;
-            actual_y_coord = y;
+            actual_x_coord = (float)x;
+            actual_y_coord = (float)y;
         }
 
-        void move(std::chrono::duration<float> &time_passed) {
-            actual_x_coord = actual_x_coord + speed * dx * time_passed.count();
-            actual_y_coord = actual_y_coord + speed * dy * time_passed.count();
+        void move(std::chrono::duration<float> &time_passed_) {
+            actual_x_coord = actual_x_coord + (float)speed * dx * time_passed_.count();
+            actual_y_coord = actual_y_coord + (float)speed * dy * time_passed_.count();
             while (actual_x_coord < 0) actual_x_coord += WORLD_PIXEL_SIZE;
             while (actual_y_coord < 0) actual_y_coord += WORLD_PIXEL_SIZE;
             while (actual_x_coord >= WORLD_PIXEL_SIZE) actual_x_coord -= WORLD_PIXEL_SIZE;
@@ -128,9 +127,9 @@ struct Game {
             setPosition(400, 300);
         }
 
-        void draw(sf::RenderWindow *window) {
-            window->draw(*this);
-            inventory.draw(window);
+        void draw(sf::RenderWindow *window_) {
+            window_->draw(*this);
+            inventory.draw(window_);
         }
 
         Inventory inventory;
@@ -211,19 +210,19 @@ struct Game {
                     (dir_path + "chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
                     std::ios::out | std::ios::trunc);
             if (!f.good()) return;
-            int mobs_cnt = mobs.size();
+            int mobs_cnt = (int)mobs.size();
             f << mobs_cnt << '\n';
             for (int i = 0; i < mobs_cnt; ++i) {
                 f << mobs[i].id << ' ' << mobs[i].x_coord << ' ' << mobs[i].y_coord << '\n';
             }
-            int obj_cnt = objects.size();
+            int obj_cnt = (int)objects.size();
             f << obj_cnt << '\n';
             for (int i = 0; i < obj_cnt; ++i) {
                 f << objects[i].id << ' ' << objects[i].x_coord << ' ' << objects[i].y_coord << '\n';
             }
         }
 
-        void draw(int player_x, int player_y, sf::RenderWindow *window) {
+        void draw(int player_x, int player_y, sf::RenderWindow *window_) {
             sf::RectangleShape shape({CHUNK_SIZE, CHUNK_SIZE});
             shape.setFillColor(color);
             int x = x_coord * CHUNK_SIZE % WORLD_PIXEL_SIZE;
@@ -231,7 +230,7 @@ struct Game {
             auto xy = get_window_coords(x, y, player_x, player_y);
             x = xy.first, y = xy.second;
             shape.setPosition((float) x, (float) y);
-            window->draw(shape);
+            window_->draw(shape);
         }
 
         void del() {
@@ -247,14 +246,14 @@ struct Game {
         int frames_current_count = 0, frames_latest_count = 0;
         std::time_t frames_time;
 
-        void draw_player_coords(sf::RenderWindow *window, Player *player) {
-            sf::Text coords_text(std::to_string(player->x_coord) + ' ' + std::to_string(player->y_coord), test_font);
+        static void draw_player_coords(sf::RenderWindow *window_, Player *player_) {
+            sf::Text coords_text(std::to_string(player_->x_coord) + ' ' + std::to_string(player_->y_coord), test_font);
             coords_text.setPosition(10, 10);
             coords_text.setCharacterSize(18);
-            window->draw(coords_text);
+            window_->draw(coords_text);
         }
 
-        void draw_fps(sf::RenderWindow *window) {
+        void draw_fps(sf::RenderWindow *window_) {
             if (frames_time == std::time(nullptr)) ++frames_current_count;
             else {
                 frames_time = std::time(nullptr);
@@ -264,7 +263,7 @@ struct Game {
             sf::Text fps_text(std::to_string(frames_latest_count), test_font);
             fps_text.setPosition(200, 10);
             fps_text.setCharacterSize(18);
-            window->draw(fps_text);
+            window_->draw(fps_text);
         }
     };
 
@@ -448,13 +447,13 @@ struct Game {
             }
         }
         player.draw(window);
-        debug.draw_player_coords(window, &player);
+        Debug::draw_player_coords(window, &player);
         debug.draw_fps(window);
     }
 
     float calculate_sleep_time() {
-        float full_sleep_time = time_passed.count() * 1000, mspf = 1000 / max_fps;
-        last_sleep_time = mspf + last_sleep_time - full_sleep_time;
+        float full_sleep_time = time_passed.count() * 1000, ms_pf = 1000.f /(float)max_fps;
+        last_sleep_time = ms_pf + last_sleep_time - full_sleep_time;
         return last_sleep_time;
     }
 };

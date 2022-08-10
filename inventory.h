@@ -11,58 +11,59 @@
 
 using std::string, std::vector;
 
+struct Item {
+    int id;
+    int max_stack_size;
+    json<string, string> params;
+
+    Item() : id(-1), max_stack_size(64) {}
+};
+
+struct Slot {
+    int x_pix{}, y_pix{};
+    bool is_active = false;
+    Item item;
+    int cnt = 0;
+
+    [[nodiscard]] bool is_pressed(int x_mouse, int y_mouse) const {
+        return (x_mouse >= x_pix && x_mouse < x_pix + SLOT_PIXEL_SIZE) &&
+               (y_mouse >= y_pix && y_mouse < y_pix + SLOT_PIXEL_SIZE);
+    }
+
+    void draw(sf::RenderWindow *window, bool draw_slot_icon = true) const {
+        if (is_active) {
+            active_slot_sprite.setPosition((float) x_pix, (float) y_pix);
+            window->draw(active_slot_sprite);
+        } else if (draw_slot_icon) {
+            default_slot_sprite.setPosition((float) x_pix, (float) y_pix);
+            window->draw(default_slot_sprite);
+        }
+        if (item.id != -1) {
+            sf::Sprite item_sprite;
+            item_sprite.setTexture(item_textures[item.id]);
+            item_sprite.setPosition((float) (x_pix - (draw_slot_icon ? 0 : SLOT_PIXEL_SIZE * 3 / 4)),
+                                    (float) (y_pix - (draw_slot_icon ? 0 : SLOT_PIXEL_SIZE * 3 / 4)));
+            window->draw(item_sprite);
+            if (item.max_stack_size != 1) {
+                sf::Text text_count(std::to_string(cnt), cnt_font);
+                text_count.setCharacterSize(SLOT_PIXEL_SIZE / 2);
+                text_count.setFillColor(sf::Color(0, 0, 0));
+                text_count.setPosition(
+                        (float) (x_pix + SLOT_PIXEL_SIZE / 2. - (draw_slot_icon ? 0 : SLOT_PIXEL_SIZE * 3 / 4)),
+                        (float) (y_pix + SLOT_PIXEL_SIZE * 3. / 7 -
+                                 (draw_slot_icon ? 0 : SLOT_PIXEL_SIZE * 3 / 4)));
+                window->draw(text_count);
+            }
+        }
+    }
+
+    void swap_item(Slot &other) {
+        std::swap(other.item, item);
+        std::swap(other.cnt, cnt);
+    }
+};
+
 struct Inventory {
-    struct Item {
-        int id;
-        int max_stack_size;
-        json<string, string> params;
-
-        Item() : id(-1), max_stack_size(64) {}
-    };
-
-    struct Slot {
-        int x_pix{}, y_pix{};
-        bool is_active = 0;
-        Item item;
-        int cnt = 0;
-
-        bool is_pressed(int x_mouse, int y_mouse) const {
-            return (x_mouse >= x_pix && x_mouse < x_pix + SLOT_PIXEL_SIZE) &&
-                   (y_mouse >= y_pix && y_mouse < y_pix + SLOT_PIXEL_SIZE);
-        }
-
-        void draw(sf::RenderWindow *window, bool draw_slot_icon = true) const {
-            if (is_active) {
-                active_slot_sprite.setPosition((float) x_pix, (float) y_pix);
-                window->draw(active_slot_sprite);
-            } else if (draw_slot_icon) {
-                default_slot_sprite.setPosition((float) x_pix, (float) y_pix);
-                window->draw(default_slot_sprite);
-            }
-            if (item.id != -1) {
-                sf::Sprite item_sprite;
-                item_sprite.setTexture(item_textures[item.id]);
-                item_sprite.setPosition((float) (x_pix - (draw_slot_icon ? 0 : SLOT_PIXEL_SIZE * 3 / 4)),
-                                        (float) (y_pix - (draw_slot_icon ? 0 : SLOT_PIXEL_SIZE * 3 / 4)));
-                window->draw(item_sprite);
-                if (item.max_stack_size != 1) {
-                    sf::Text text_count(std::to_string(cnt), cnt_font);
-                    text_count.setCharacterSize(SLOT_PIXEL_SIZE / 2);
-                    text_count.setFillColor(sf::Color(0, 0, 0));
-                    text_count.setPosition(
-                            (float) (x_pix + SLOT_PIXEL_SIZE / 2. - (draw_slot_icon ? 0 : SLOT_PIXEL_SIZE * 3 / 4)),
-                            (float) (y_pix + SLOT_PIXEL_SIZE * 3. / 7 -
-                                     (draw_slot_icon ? 0 : SLOT_PIXEL_SIZE * 3 / 4)));
-                    window->draw(text_count);
-                }
-            }
-        }
-
-        void swap_item(Slot &other) {
-            std::swap(other.item, item);
-            std::swap(other.cnt, cnt);
-        }
-    };
 
     Slot invisible_mouse_slot;
     Slot left_hand, right_hand;
@@ -168,7 +169,7 @@ struct Inventory {
                     int mx = left_hand.item.max_stack_size;
                     if (cnt1 + cnt2 <= mx) {
                         cnt1 += cnt2;
-                        invisible_mouse_slot.item = Inventory::Item();
+                        invisible_mouse_slot.item = Item();
                         is_item_in_mouse = false;
                     } else {
                         cnt2 = cnt1 + cnt2 - mx;
@@ -192,7 +193,7 @@ struct Inventory {
                     int mx = right_hand.item.max_stack_size;
                     if (cnt1 + cnt2 <= mx) {
                         cnt1 += cnt2;
-                        invisible_mouse_slot.item = Inventory::Item();
+                        invisible_mouse_slot.item = Item();
                         is_item_in_mouse = false;
                     } else {
                         cnt2 = cnt1 + cnt2 - mx;
@@ -224,7 +225,7 @@ struct Inventory {
                         int mx = armor[i].item.max_stack_size;
                         if (cnt1 + cnt2 <= mx) {
                             cnt1 += cnt2;
-                            invisible_mouse_slot.item = Inventory::Item();
+                            invisible_mouse_slot.item = Item();
                             is_item_in_mouse = false;
                         } else {
                             cnt2 = cnt1 + cnt2 - mx;
@@ -257,7 +258,7 @@ struct Inventory {
                         int mx = fast_pack[i].item.max_stack_size;
                         if (cnt1 + cnt2 <= mx) {
                             cnt1 += cnt2;
-                            invisible_mouse_slot.item = Inventory::Item();
+                            invisible_mouse_slot.item = Item();
                             is_item_in_mouse = false;
                         } else {
                             cnt2 = cnt1 + cnt2 - mx;
@@ -292,7 +293,7 @@ struct Inventory {
                                 int mx = cock_pack[i][j].item.max_stack_size;
                                 if (cnt1 + cnt2 <= mx) {
                                     cnt1 += cnt2;
-                                    invisible_mouse_slot.item = Inventory::Item();
+                                    invisible_mouse_slot.item = Item();
                                     is_item_in_mouse = false;
                                 } else {
                                     cnt2 = cnt1 + cnt2 - mx;
@@ -326,7 +327,7 @@ struct Inventory {
                         cnt1 += 1;
                         cnt2 -= 1;
                         if (cnt2 == 0) {
-                            invisible_mouse_slot.item = Inventory::Item();
+                            invisible_mouse_slot.item = Item();
                             is_item_in_mouse = false;
                         }
                     } // else do nothing
@@ -335,7 +336,7 @@ struct Inventory {
                     left_hand.cnt = 1;
                     invisible_mouse_slot.cnt -= 1;
                     if (invisible_mouse_slot.cnt == 0) {
-                        invisible_mouse_slot.item = Inventory::Item();
+                        invisible_mouse_slot.item = Item();
                         is_item_in_mouse = false;
                     }
                 }
@@ -347,7 +348,7 @@ struct Inventory {
                 invisible_mouse_slot.cnt = to_mouse;
                 is_item_in_mouse = true;
                 if (cnt == 0) {
-                    left_hand.item = Inventory::Item();
+                    left_hand.item = Item();
                 }
             }
             return 1;
@@ -362,7 +363,7 @@ struct Inventory {
                         cnt1 += 1;
                         cnt2 -= 1;
                         if (cnt2 == 0) {
-                            invisible_mouse_slot.item = Inventory::Item();
+                            invisible_mouse_slot.item = Item();
                             is_item_in_mouse = false;
                         }
                     } // else do nothing
@@ -371,7 +372,7 @@ struct Inventory {
                     right_hand.cnt = 1;
                     invisible_mouse_slot.cnt -= 1;
                     if (invisible_mouse_slot.cnt == 0) {
-                        invisible_mouse_slot.item = Inventory::Item();
+                        invisible_mouse_slot.item = Item();
                         is_item_in_mouse = false;
                     }
                 }
@@ -383,7 +384,7 @@ struct Inventory {
                 invisible_mouse_slot.cnt = to_mouse;
                 is_item_in_mouse = true;
                 if (cnt == 0) {
-                    right_hand.item = Inventory::Item();
+                    right_hand.item = Item();
                 }
             }
             return 2;
@@ -402,7 +403,7 @@ struct Inventory {
                             cnt1 += 1;
                             cnt2 -= 1;
                             if(cnt2 == 0){
-                                invisible_mouse_slot.item = Inventory::Item();
+                                invisible_mouse_slot.item = Item();
                                 is_item_in_mouse = false;
                             }
                         } // else do nothing
@@ -411,7 +412,7 @@ struct Inventory {
                         armor[i].cnt = 1;
                         invisible_mouse_slot.cnt -= 1;
                         if(invisible_mouse_slot.cnt == 0){
-                            invisible_mouse_slot.item = Inventory::Item();
+                            invisible_mouse_slot.item = Item();
                             is_item_in_mouse = false;
                         }
                     }
@@ -423,7 +424,7 @@ struct Inventory {
                     invisible_mouse_slot.cnt = to_mouse;
                     is_item_in_mouse = true;
                     if(cnt == 0){
-                        armor[i].item = Inventory::Item();
+                        armor[i].item = Item();
                     }
                 }
                 get_active_slot().is_active = false;
@@ -445,7 +446,7 @@ struct Inventory {
                             cnt1 += 1;
                             cnt2 -= 1;
                             if(cnt2 == 0){
-                                invisible_mouse_slot.item = Inventory::Item();
+                                invisible_mouse_slot.item = Item();
                                 is_item_in_mouse = false;
                             }
                         } // else do nothing
@@ -454,7 +455,7 @@ struct Inventory {
                         fast_pack[i].cnt = 1;
                         invisible_mouse_slot.cnt -= 1;
                         if(invisible_mouse_slot.cnt == 0){
-                            invisible_mouse_slot.item = Inventory::Item();
+                            invisible_mouse_slot.item = Item();
                             is_item_in_mouse = false;
                         }
                     }
@@ -466,7 +467,7 @@ struct Inventory {
                     invisible_mouse_slot.cnt = to_mouse;
                     is_item_in_mouse = true;
                     if(cnt == 0){
-                        fast_pack[i].item = Inventory::Item();
+                        fast_pack[i].item = Item();
                     }
                 }
                 get_active_slot().is_active = false;
@@ -490,7 +491,7 @@ struct Inventory {
                                     cnt1 += 1;
                                     cnt2 -= 1;
                                     if(cnt2 == 0){
-                                        invisible_mouse_slot.item = Inventory::Item();
+                                        invisible_mouse_slot.item = Item();
                                         is_item_in_mouse = false;
                                     }
                                 } // else do nothing
@@ -499,7 +500,7 @@ struct Inventory {
                                 cock_pack[i][j].cnt = 1;
                                 invisible_mouse_slot.cnt -= 1;
                                 if(invisible_mouse_slot.cnt == 0){
-                                    invisible_mouse_slot.item = Inventory::Item();
+                                    invisible_mouse_slot.item = Item();
                                     is_item_in_mouse = false;
                                 }
                             }
@@ -511,7 +512,7 @@ struct Inventory {
                             invisible_mouse_slot.cnt = to_mouse;
                             is_item_in_mouse = true;
                             if(cnt == 0){
-                                cock_pack[i][j].item = Inventory::Item();
+                                cock_pack[i][j].item = Item();
                             }
                         }
                         get_active_slot().is_active = false;

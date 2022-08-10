@@ -2,7 +2,6 @@
 #define SUPERMEGA2DGAME_INIT_H
 
 using std::string;
-const string dir_path = "../";
 
 const int
         MAX_TEXTURES_COUNT = 10,
@@ -16,6 +15,7 @@ const int
         FAST_PACK_SIZE = 10,
         SLOT_PIXEL_SIZE = 32;
 
+const string dir_path = "../";
 sf::Sprite active_slot_sprite, default_slot_sprite;
 sf::Texture textures[MAX_TEXTURES_COUNT]; // Жоска экономим память, не храня спрайты
 sf::Texture item_textures[ITEMS_COUNT];
