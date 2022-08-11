@@ -77,11 +77,11 @@ struct Inventory {
     Inventory() {
         active_slot_sprite.setTexture(textures[9]);
         default_slot_sprite.setTexture(textures[8]);
-        invisible_mouse_slot.item.id = 1; // test
+        /*right_hand.item.id = 1; // test
         invisible_mouse_slot.cnt = 10;
         left_hand.item.id = 0; // test
         left_hand.cnt = 56;
-        is_item_in_mouse = true;
+        is_item_in_mouse = true;*/
         left_hand.x_pix = SLOT_PIXEL_SIZE / 2;
         left_hand.y_pix = 2 * SLOT_PIXEL_SIZE;
         right_hand.x_pix = SLOT_PIXEL_SIZE / 2 + SLOT_PIXEL_SIZE + 2 * SLOT_PIXEL_SIZE;
