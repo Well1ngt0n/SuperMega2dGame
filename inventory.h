@@ -77,11 +77,11 @@ struct Inventory {
     Inventory() {
         active_slot_sprite.setTexture(textures[9]);
         default_slot_sprite.setTexture(textures[8]);
-        /*right_hand.item.id = 1; // test
-        invisible_mouse_slot.cnt = 10;
+        right_hand.item.id = 1; // test
+        right_hand.cnt = 10;
         left_hand.item.id = 0; // test
         left_hand.cnt = 56;
-        is_item_in_mouse = true;*/
+        is_item_in_mouse = false;
         left_hand.x_pix = SLOT_PIXEL_SIZE / 2;
         left_hand.y_pix = 2 * SLOT_PIXEL_SIZE;
         right_hand.x_pix = SLOT_PIXEL_SIZE / 2 + SLOT_PIXEL_SIZE + 2 * SLOT_PIXEL_SIZE;
@@ -160,6 +160,7 @@ struct Inventory {
             return armor[active_slot.second];
         }
     }
+
     int left_click_in_inventory(int x, int y) {
         if (left_hand.is_pressed(x, y)) {
             if (is_item_in_mouse) {
@@ -342,7 +343,7 @@ struct Inventory {
                 }
             } else if (left_hand.item.id != -1) {
                 int &cnt = left_hand.cnt;
-                int to_mouse = -~cnt >> 1;
+                int to_mouse = (cnt + 1) / 2;
                 cnt -= to_mouse;
                 invisible_mouse_slot.item = left_hand.item;
                 invisible_mouse_slot.cnt = to_mouse;
@@ -378,7 +379,7 @@ struct Inventory {
                 }
             } else if (right_hand.item.id != -1) {
                 int &cnt = right_hand.cnt;
-                int to_mouse = -~cnt >> 1;
+                int to_mouse = (cnt + 1) / 2;
                 cnt -= to_mouse;
                 invisible_mouse_slot.item = right_hand.item;
                 invisible_mouse_slot.cnt = to_mouse;
@@ -402,28 +403,28 @@ struct Inventory {
                         if (cnt1 + 1 <= mx) {
                             cnt1 += 1;
                             cnt2 -= 1;
-                            if(cnt2 == 0){
+                            if (cnt2 == 0) {
                                 invisible_mouse_slot.item = Item();
                                 is_item_in_mouse = false;
                             }
                         } // else do nothing
-                    } else if(armor[i].item.id == -1){
+                    } else if (armor[i].item.id == -1) {
                         armor[i].item = invisible_mouse_slot.item;
                         armor[i].cnt = 1;
                         invisible_mouse_slot.cnt -= 1;
-                        if(invisible_mouse_slot.cnt == 0){
+                        if (invisible_mouse_slot.cnt == 0) {
                             invisible_mouse_slot.item = Item();
                             is_item_in_mouse = false;
                         }
                     }
-                } else if(armor[i].item.id != -1 && armor[i].is_active){
-                    int& cnt = armor[i].cnt;
-                    int to_mouse = -~cnt>>1;
+                } else if (armor[i].item.id != -1 && armor[i].is_active) {
+                    int &cnt = armor[i].cnt;
+                    int to_mouse = (cnt + 1) / 2;
                     cnt -= to_mouse;
                     invisible_mouse_slot.item = armor[i].item;
                     invisible_mouse_slot.cnt = to_mouse;
                     is_item_in_mouse = true;
-                    if(cnt == 0){
+                    if (cnt == 0) {
                         armor[i].item = Item();
                     }
                 }
@@ -445,28 +446,28 @@ struct Inventory {
                         if (cnt1 + 1 <= mx) {
                             cnt1 += 1;
                             cnt2 -= 1;
-                            if(cnt2 == 0){
+                            if (cnt2 == 0) {
                                 invisible_mouse_slot.item = Item();
                                 is_item_in_mouse = false;
                             }
                         } // else do nothing
-                    } else if(fast_pack[i].item.id == -1){
+                    } else if (fast_pack[i].item.id == -1) {
                         fast_pack[i].item = invisible_mouse_slot.item;
                         fast_pack[i].cnt = 1;
                         invisible_mouse_slot.cnt -= 1;
-                        if(invisible_mouse_slot.cnt == 0){
+                        if (invisible_mouse_slot.cnt == 0) {
                             invisible_mouse_slot.item = Item();
                             is_item_in_mouse = false;
                         }
                     }
-                } else if(fast_pack[i].item.id != -1 && fast_pack[i].is_active){
-                    int& cnt = fast_pack[i].cnt;
-                    int to_mouse = -~cnt>>1;
+                } else if (fast_pack[i].item.id != -1 && fast_pack[i].is_active) {
+                    int &cnt = fast_pack[i].cnt;
+                    int to_mouse = (cnt + 1) / 2;
                     cnt -= to_mouse;
                     invisible_mouse_slot.item = fast_pack[i].item;
                     invisible_mouse_slot.cnt = to_mouse;
                     is_item_in_mouse = true;
-                    if(cnt == 0){
+                    if (cnt == 0) {
                         fast_pack[i].item = Item();
                     }
                 }
@@ -490,34 +491,34 @@ struct Inventory {
                                 if (cnt1 + 1 <= mx) {
                                     cnt1 += 1;
                                     cnt2 -= 1;
-                                    if(cnt2 == 0){
+                                    if (cnt2 == 0) {
                                         invisible_mouse_slot.item = Item();
                                         is_item_in_mouse = false;
                                     }
                                 } // else do nothing
-                            } else if(cock_pack[i][j].item.id == -1){
+                            } else if (cock_pack[i][j].item.id == -1) {
                                 cock_pack[i][j].item = invisible_mouse_slot.item;
                                 cock_pack[i][j].cnt = 1;
                                 invisible_mouse_slot.cnt -= 1;
-                                if(invisible_mouse_slot.cnt == 0){
+                                if (invisible_mouse_slot.cnt == 0) {
                                     invisible_mouse_slot.item = Item();
                                     is_item_in_mouse = false;
                                 }
                             }
-                        } else if(cock_pack[i][j].item.id != -1 && cock_pack[i][j].is_active){
-                            int& cnt = cock_pack[i][j].cnt;
-                            int to_mouse = -~cnt>>1;
+                        } else if (cock_pack[i][j].item.id != -1 && cock_pack[i][j].is_active) {
+                            int &cnt = cock_pack[i][j].cnt;
+                            int to_mouse = (cnt + 1) / 2;
                             cnt -= to_mouse;
                             invisible_mouse_slot.item = cock_pack[i][j].item;
                             invisible_mouse_slot.cnt = to_mouse;
                             is_item_in_mouse = true;
-                            if(cnt == 0){
+                            if (cnt == 0) {
                                 cock_pack[i][j].item = Item();
                             }
                         }
                         get_active_slot().is_active = false;
                         cock_pack[i][j].is_active = true;
-                        active_slot = {1, i*PACK_WIDTH+j};
+                        active_slot = {1, i * PACK_WIDTH + j};
                         break;
                     }
                 }

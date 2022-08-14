@@ -25,43 +25,111 @@ struct Game {
     Game(sf::RenderWindow *n_window) : window{n_window} {
         std::srand(std::time(nullptr));
         chunks.resize(WORLD_SIZE, vector<Chunk>(WORLD_SIZE));
-        test_font.loadFromFile(dir_path + "Hack-Regular.ttf");
-        cnt_font.loadFromFile(dir_path + "fonts/" + "Vogue Bold.ttf");
+        test_font.loadFromFile("../Hack-Regular.ttf");
+        cnt_font.loadFromFile("../fonts/Vogue Bold.ttf");
 
-        for (auto & active_chunk : active_chunks)
-            for (bool & j : active_chunk)
-                j = false;
+        for (int i = 0; i < WORLD_SIZE; ++i)
+            for (int j = 0; j < WORLD_SIZE; ++j)
+                active_chunks[i][j] = false;
 
         last_update_time = std::chrono::system_clock::now();
     }
 
-    struct Object : public sf::Sprite {
-        Object(int n_x, int n_y, int n_id) :
-                x_coord{n_x}, y_coord{n_y}, id{n_id} {}
+    static std::pair<int, int> get_window_coords(int x, int y, int player_x, int player_y) {
+        int nx = window_width / 2 - player_x + x, ny = window_height / 2 - player_y + y;
+        if (x > player_x && WORLD_PIXEL_SIZE + player_x - x < x - player_x) {
+            nx = window_width / 2 - (WORLD_PIXEL_SIZE + player_x - x);
+        } else if (x <= player_x && WORLD_PIXEL_SIZE - player_x + x < player_x - x) {
+            nx = window_width / 2 + (WORLD_PIXEL_SIZE - player_x + x);
+        }
+        if (y > player_y && WORLD_PIXEL_SIZE + player_y - y < y - player_y) {
+            ny = window_height / 2 - (WORLD_PIXEL_SIZE + player_y - y);
+        } else if (y <= player_y && WORLD_PIXEL_SIZE - player_y + y < player_y - y) {
+            ny = window_height / 2 + (WORLD_PIXEL_SIZE - player_y + y);
+        }
+        return {nx, ny};
+    }
 
-        int x_coord, y_coord, id;
+
+    struct Object : public sf::Sprite {
+        Object(int n_x, int n_y, int n_id) : x_coord{n_x}, y_coord{n_y}, id{n_id} {
+            std::ifstream f(("../objects/" + std::to_string(id) + ".object").c_str());
+            if (!f.good()) return;
+            f >> static_texture;
+            int k;
+            f >> k;
+            animated_texture.resize(k);
+            for (int i = 0; i < k; i++) f >> animated_texture[i];
+            if (k != 0) {
+                f >> time_animation;
+                animation = true;
+            }
+            f.close();
+        }
+
+        int x_coord, y_coord, id, cur_texture = 0, time_animation;
+        float time_from_last_animation;
         json<string, string> parameters;
-        int static_texture{};
+        int static_texture;
+        bool animation = false;
         vector<int> animated_texture;
 
-        void draw(int player_x, int player_y) {
-            return;
+        void draw(int player_x, int player_y, sf::RenderWindow *window) {
+            auto [x_window, y_window] = get_window_coords(x_coord, y_coord, player_x, player_y);
+            //std::cout << x_window << ' ' << y_window << std::endl;
+            this->setPosition(x_window, y_window);
+            window->draw(*this);
+        }
+
+        void update(std::chrono::duration<float> &time_passed) {
+            time_from_last_animation += time_passed.count();
+            if (!animation) this->setTexture(textures[static_texture]);
+            else if (((float) time_animation / (float) animated_texture.size() / 1000) <= time_from_last_animation) {
+
+                cur_texture = (cur_texture + 1) % animated_texture.size();
+                this->setTexture(textures[animated_texture[cur_texture]]);
+                time_from_last_animation = 0;
+            }
         }
     };
 
 
     struct MovableObject : public Object {
-        int speed{};
-        float dx{}, dy{}, actual_x_coord, actual_y_coord;
+        int speed;
+        float dx, dy, actual_x_coord, actual_y_coord;
+
+        std::map<std::pair<int, int>, int> index_from_direction = { // mp[{dx, dy}] = index
+                //{{0, 0}, 0}, - may be?
+                {{0,  1},  0}, // sorted by angle
+                {{1,  1},  1},
+                {{1,  0},  2},
+                {{1,  -1}, 3},
+                {{0,  -1}, 4},
+                {{-1, -1}, 5}, //animations to this directions can be maked with reverse of other directions
+                {{-1, 0},  6},
+                {{-1, 1},  7},
+        };
+
+        vector<int> move_animation[8];
 
         MovableObject(int x, int y, int id) : Object(x, y, id) {
-            actual_x_coord = (float)x;
-            actual_y_coord = (float)y;
+            actual_x_coord = x;
+            actual_y_coord = y;
+            std::ifstream f(("../movable_objects/" + std::to_string(id) + ".movable_object").c_str());
+            if (!f.good()) return;
+            for (auto &direction_animation: move_animation) {
+                int k;
+                f >> k;
+                direction_animation.resize(k);
+                for (auto &texture_index: direction_animation)
+                    f >> texture_index;
+            }
+            f.close();
         }
 
-        void move(std::chrono::duration<float> &time_passed_) {
-            actual_x_coord = actual_x_coord + (float)speed * dx * time_passed_.count();
-            actual_y_coord = actual_y_coord + (float)speed * dy * time_passed_.count();
+        void move(std::chrono::duration<float> &time_passed) {
+            actual_x_coord = actual_x_coord + speed * dx * time_passed.count();
+            actual_y_coord = actual_y_coord + speed * dy * time_passed.count();
             while (actual_x_coord < 0) actual_x_coord += WORLD_PIXEL_SIZE;
             while (actual_y_coord < 0) actual_y_coord += WORLD_PIXEL_SIZE;
             while (actual_x_coord >= WORLD_PIXEL_SIZE) actual_x_coord -= WORLD_PIXEL_SIZE;
@@ -124,7 +192,8 @@ struct Game {
                 dx = 0;
                 dy = 0;
             }
-            setPosition(400, 300);
+            auto [width, height] = this->getTexture()->getSize();
+            setPosition(window_width / 2 - width / 2, window_height / 2 - height / 2);
         }
 
         void draw(sf::RenderWindow *window_) {
@@ -142,30 +211,22 @@ struct Game {
 
     Player player{};
 
-    static std::pair<int, int> get_window_coords(int x, int y, int player_x, int player_y) {
-        int nx = window_width / 2 - player_x + x, ny = window_height / 2 - player_y + y;
-        if (x > player_x && WORLD_PIXEL_SIZE + player_x - x < x - player_x) {
-            nx = window_width / 2 - (WORLD_PIXEL_SIZE + player_x - x);
-        } else if (x <= player_x && WORLD_PIXEL_SIZE - player_x + x < player_x - x) {
-            nx = window_width / 2 + (WORLD_PIXEL_SIZE - player_x + x);
-        }
-        if (y > player_y && WORLD_PIXEL_SIZE + player_y - y < y - player_y) {
-            ny = window_height / 2 - (WORLD_PIXEL_SIZE + player_y - y);
-        } else if (y <= player_y && WORLD_PIXEL_SIZE - player_y + y < player_y - y) {
-            ny = window_height / 2 + (WORLD_PIXEL_SIZE - player_y + y);
-        }
-        return {nx, ny};
-    }
 
     struct Mob : public MovableObject {
-        vector<int> animation_textures;
+        vector<int> attack_animation[8];
         int stop_texture;
 
-        Mob(int x, int y, int id) : MovableObject(x, y, id) {}
-
-        void init2() {
-
+        Mob(int x, int y, int id) : MovableObject(x, y, id) {
+            std::ifstream f(("../movable_objects/" + std::to_string(id) + ".movable_object").c_str());
+            if (!f.good()) return;
+            for (auto &direction_animation: attack_animation) {
+                int k;
+                f >> k;
+                direction_animation.resize(k);
+                for (auto &texture_index: direction_animation) f >> texture_index;
+            }
         }
+
 
         void logic() {
 
@@ -180,8 +241,8 @@ struct Game {
 
         void load(int x, int y) {
             x_coord = x, y_coord = y;
-            std::ifstream f((dir_path + "chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) +
-                             ".chunk").c_str());
+            std::ifstream f(
+                    ("../chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str());
             color = {uint8_t(std::rand() % 256), uint8_t(std::rand() % 256), uint8_t(std::rand() % 256), 255};
             if (!f.good()) return;
             int mobs_cnt;
@@ -203,34 +264,34 @@ struct Game {
 
         void upload() {
             std::ofstream test(
-                    (dir_path + "chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
+                    (".//chunks//" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
                     std::ios::in);
             if (!test.good()) return;
             std::ofstream f(
-                    (dir_path + "chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
+                    (".//chunks//" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
                     std::ios::out | std::ios::trunc);
             if (!f.good()) return;
-            int mobs_cnt = (int)mobs.size();
+            int mobs_cnt = mobs.size();
             f << mobs_cnt << '\n';
             for (int i = 0; i < mobs_cnt; ++i) {
                 f << mobs[i].id << ' ' << mobs[i].x_coord << ' ' << mobs[i].y_coord << '\n';
             }
-            int obj_cnt = (int)objects.size();
+            int obj_cnt = objects.size();
             f << obj_cnt << '\n';
             for (int i = 0; i < obj_cnt; ++i) {
                 f << objects[i].id << ' ' << objects[i].x_coord << ' ' << objects[i].y_coord << '\n';
             }
         }
 
-        void draw(int player_x, int player_y, sf::RenderWindow *window_) {
+        void draw(int player_x, int player_y, sf::RenderWindow *window) {
             sf::RectangleShape shape({CHUNK_SIZE, CHUNK_SIZE});
             shape.setFillColor(color);
             int x = x_coord * CHUNK_SIZE % WORLD_PIXEL_SIZE;
             int y = y_coord * CHUNK_SIZE % WORLD_PIXEL_SIZE;
             auto xy = get_window_coords(x, y, player_x, player_y);
             x = xy.first, y = xy.second;
-            shape.setPosition((float) x, (float) y);
-            window_->draw(shape);
+            shape.setPosition({x, y});
+            window->draw(shape);
         }
 
         void del() {
@@ -267,7 +328,6 @@ struct Game {
         }
     };
 
-    const int max_fps = 60;
     vector<vector<Chunk>> chunks;
     Debug debug{};
 
@@ -419,7 +479,13 @@ struct Game {
         player.move(time_passed);
     }
 
+    static bool cmp_objects_for_rendering(Object a, Object b) {
+        return a.y_coord > b.y_coord;
+    }
+
     void draw() {
+        vector<Object> pool_objects;
+        vector<Mob> pool_mobs;
         int dx[4] = {-1, -1, 1, 1};
         int dy[4] = {1, -1, -1, 1};
         for (int d = 0; d <= MAX_RENDER_DISTANCE + 1; d++) {
@@ -438,21 +504,43 @@ struct Game {
 
                     if (active_chunks[nx][ny]) {
                         chunks[nx][ny].draw(player.x_coord, player.y_coord, window);
-                        for (auto &r: chunks[nx][ny].mobs)
-                            r.draw(player.x_coord, player.y_coord);
-                        for (auto &r: chunks[nx][ny].objects)
-                            r.draw(player.x_coord, player.y_coord);
+                        for (auto &mob: chunks[nx][ny].mobs) {
+                            //mob.logic();
+                            //mob.move();
+                            pool_mobs.emplace_back(mob);
+                        }
+                        for (auto &object: chunks[nx][ny].objects) {
+                            object.update(time_passed);
+                            pool_objects.emplace_back(object);
+                        }
                     }
                 }
             }
         }
-        player.draw(window);
-        Debug::draw_player_coords(window, &player);
+        sort(pool_objects.begin(), pool_objects.end(), cmp_objects_for_rendering);
+        sort(pool_mobs.begin(), pool_mobs.end(), cmp_objects_for_rendering);
+        bool player_drawed = false;
+        while (!pool_objects.empty() || !pool_mobs.empty() || !player_drawed) {
+            int y_cur_object = (pool_objects.empty() ? WORLD_PIXEL_SIZE : pool_objects.back().y_coord);
+            int y_cur_mob = (pool_mobs.empty() ? WORLD_PIXEL_SIZE : pool_mobs.back().y_coord);
+            if (!player_drawed && player.y_coord < y_cur_mob && player.y_coord < y_cur_object) {
+                player_drawed = true;
+                player.draw(window);
+            } else if (y_cur_object < y_cur_mob) {
+                pool_objects.back().draw(player.x_coord, player.y_coord, window);
+                pool_objects.pop_back();
+            } else {
+                pool_mobs.back().draw(player.x_coord, player.y_coord, window);
+                pool_mobs.pop_back();
+            }
+        }
+
+        debug.draw_player_coords(window, &player);
         debug.draw_fps(window);
     }
 
     float calculate_sleep_time() {
-        float full_sleep_time = time_passed.count() * 1000, ms_pf = 1000.f /(float)max_fps;
+        float full_sleep_time = time_passed.count() * 1000, ms_pf = 1000.f / (float) max_fps;
         last_sleep_time = ms_pf + last_sleep_time - full_sleep_time;
         return last_sleep_time;
     }

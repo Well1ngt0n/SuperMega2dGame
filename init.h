@@ -4,16 +4,17 @@
 using std::string;
 
 const int
-        MAX_TEXTURES_COUNT = 10,
+        MAX_TEXTURES_COUNT = 14,
         WORLD_SIZE = 256,
-        CHUNK_SIZE = 32,
+        CHUNK_SIZE = 512,
         MAX_RENDER_DISTANCE = 7,
         WORLD_PIXEL_SIZE = WORLD_SIZE * CHUNK_SIZE,
         ITEMS_COUNT = 2,
         PACK_WIDTH = 10,
         PACK_HEIGHT = 3,
         FAST_PACK_SIZE = 10,
-        SLOT_PIXEL_SIZE = 32;
+        SLOT_PIXEL_SIZE = 32,
+        max_fps = 60;
 
 const string dir_path = "../";
 sf::Sprite active_slot_sprite, default_slot_sprite;
@@ -21,7 +22,7 @@ sf::Texture textures[MAX_TEXTURES_COUNT]; // Жоска экономим пам�
 sf::Texture item_textures[ITEMS_COUNT];
 sf::Font test_font;
 sf::Font cnt_font;
-int window_width = 800, window_height = 600;
+int window_width = 1920, window_height = 1080;
 
 void init_textures() {
 
@@ -39,4 +40,5 @@ void init_textures() {
     }
 
 }
+
 #endif //SUPERMEGA2DGAME_INIT_H
