@@ -5,13 +5,13 @@ int main() {
     sf::RenderWindow window(sf::VideoMode(window_width, window_height), "GameBebra beta"/*, sf::Style::Fullscreen*/);
     init_textures();
     Game game(&window);
+    game.player.inventory.load();
     window.clear({0, 0, 100, 255});
-    window.display();
-    int ind = 0;
     while (window.isOpen()) {
         sf::Event event{};
         while (window.pollEvent(event)) {
             if (event.type == sf::Event::Closed) {
+                game.exit();
                 window.close();
                 break;
             }

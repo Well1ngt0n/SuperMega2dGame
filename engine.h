@@ -290,7 +290,7 @@ struct Game {
             int y = y_coord * CHUNK_SIZE % WORLD_PIXEL_SIZE;
             auto xy = get_window_coords(x, y, player_x, player_y);
             x = xy.first, y = xy.second;
-            shape.setPosition({x, y});
+            shape.setPosition(x, y);
             window->draw(shape);
         }
 
@@ -543,6 +543,10 @@ struct Game {
         float full_sleep_time = time_passed.count() * 1000, ms_pf = 1000.f / (float) max_fps;
         last_sleep_time = ms_pf + last_sleep_time - full_sleep_time;
         return last_sleep_time;
+    }
+
+    void exit(){
+        player.inventory.upload();
     }
 };
 

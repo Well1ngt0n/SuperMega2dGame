@@ -22,7 +22,7 @@ sf::Texture textures[MAX_TEXTURES_COUNT]; // Жоска экономим пам�
 sf::Texture item_textures[ITEMS_COUNT];
 sf::Font test_font;
 sf::Font cnt_font;
-int window_width = 1920, window_height = 1080;
+int window_width = 800, window_height = 600;
 
 void init_textures() {
 
