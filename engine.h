@@ -69,7 +69,6 @@ struct Game {
 
         void draw(int player_x, int player_y, sf::RenderWindow *window) {
             auto[x_window, y_window] = get_window_coords(x_coord, y_coord, player_x, player_y);
-            //std::cout << x_window << ' ' << y_window << std::endl;
             this->setPosition(x_window, y_window);
             window->draw(*this);
         }
@@ -230,7 +229,7 @@ struct Game {
     struct DropItem : public sf::Sprite {
         Item item;
         int cnt = 0;
-        float x_coord{}, y_coord{};
+        int x_coord{}, y_coord{};
         float time_from_last_animation = 0;
         char delta = 0;
         bool dir = 1;
@@ -255,14 +254,14 @@ struct Game {
 
         void draw(int player_x, int player_y, sf::RenderWindow *window) {
             auto[x_window, y_window] = get_window_coords(x_coord, y_coord, player_x, player_y);
-            this->setPosition(x_window, y_window-delta);
+            this->setPosition(x_window - SLOT_PIXEL_SIZE/2, y_window-delta);
             window->draw(*this);
             if (cnt > 1) {
-                this->setPosition(x_window + SLOT_PIXEL_SIZE / 8, y_window-delta+ SLOT_PIXEL_SIZE / 8);
+                this->setPosition(x_window + SLOT_PIXEL_SIZE / 8-SLOT_PIXEL_SIZE/2, y_window-delta+ SLOT_PIXEL_SIZE / 8);
                 window->draw(*this);
             }
         }
-        void update(std::chrono::duration<float> &time_passed, Player& player) {
+        int update(std::chrono::duration<float> &time_passed, Player& player) {
             time_from_last_animation += time_passed.count();
             if(time_from_last_animation * 1000 >= 30){
                 time_from_last_animation = 0;
@@ -273,27 +272,35 @@ struct Game {
                 }
             }
             if(is_run){
-                float dx1 = player.x_coord - x_coord;
-                float dx2 = +player.x_coord - WORLD_PIXEL_SIZE - x_coord;
-                float dx3 = -x_coord + WORLD_PIXEL_SIZE + player.x_coord;
+                int dx1 = player.x_coord - x_coord;
+                int dx2 = +player.x_coord - WORLD_PIXEL_SIZE - x_coord;
+                int dx3 = -x_coord + WORLD_PIXEL_SIZE + player.x_coord;
 
-                float dy1 = player.y_coord - y_coord;
-                float dy2 = player.y_coord - WORLD_PIXEL_SIZE - y_coord;
-                float dy3 = -y_coord + player.y_coord + WORLD_PIXEL_SIZE;
+                int dy1 = player.y_coord - y_coord;
+                int dy2 = player.y_coord - WORLD_PIXEL_SIZE - y_coord;
+                int dy3 = -y_coord + player.y_coord + WORLD_PIXEL_SIZE;
 
-                float dx = (fabs(dx1) < fabs(dx2) ? fabs(dx3) < fabs(dx1) ? dx3 : dx1 : fabs(dx3) < fabs(dx2) ? dx3 : dx2), dy = (fabs(dy1) < fabs(dy2) ? fabs(dy3) < fabs(dy1) ? dy3 : dy1 : fabs(dy3) < fabs(dy2) ? dy3 : dy2);
+                int dx = (abs(dx1) < abs(dx2) ? abs(dx3) < abs(dx1) ? dx3 : dx1 : abs(dx3) < abs(dx2) ? dx3 : dx2), dy = (abs(dy1) < abs(dy2) ? abs(dy3) < abs(dy1) ? dy3 : dy1 : abs(dy3) < abs(dy2) ? dy3 : dy2);
 
                 if(hypot(dx, dy) < 10){
-
+                    return 1;
+                    // TODO: загрузить в инвентарь, скорее всего извне функции
                 }
 
-                x_coord = x_coord + 10 * dx * time_passed.count();
-                y_coord = y_coord + 10 * dy * time_passed.count();
+                int prx = x_coord, pry = y_coord;
+
+                x_coord = x_coord + 10 * dx * std::min(0.1f, time_passed.count());
+                y_coord = y_coord + 10 * dy * std::min(0.1f, time_passed.count());
                 while (x_coord < 0) x_coord += WORLD_PIXEL_SIZE;
                 while (y_coord < 0) y_coord += WORLD_PIXEL_SIZE;
                 while (x_coord >= WORLD_PIXEL_SIZE) x_coord -= WORLD_PIXEL_SIZE;
                 while (y_coord >= WORLD_PIXEL_SIZE) y_coord -= WORLD_PIXEL_SIZE;
+
+                if(prx/CHUNK_SIZE != x_coord/CHUNK_SIZE || pry/CHUNK_SIZE != y_coord/CHUNK_SIZE){
+                    return 2; //выписать из старого чанка, азгрузить в новый
+                }
             }
+            return 0;
         }
     };
 
@@ -614,9 +621,17 @@ struct Game {
                             //mob.move();
                             pool_mobs.emplace_back(mob);
                         }
-                       for (auto &item: chunks[nx][ny].drop_items) {
-                            item.update(time_passed, player);
-                            pool_items.push_back(item);
+                       for (auto it = chunks[nx][ny].drop_items.begin(); it != chunks[nx][ny].drop_items.end();) {
+                            int kok = it->update(time_passed, player);
+                            pool_items.push_back(*it);
+                            if(kok == 2){
+                                chunks[it->x_coord/CHUNK_SIZE][it->y_coord/CHUNK_SIZE].drop_items.push_back(*it);
+                                std::cout << "kok" << std::endl;
+                                it = chunks[nx][ny].drop_items.erase(it);
+                            }
+                            else{
+                                it++;
+                            }
                         }
                         for (auto &object: chunks[nx][ny].objects) {
                             object.update(time_passed);
@@ -663,6 +678,13 @@ struct Game {
 
     void exit() {
         player.inventory.upload();
+        for(int i = 0; i < WORLD_SIZE; i++){
+            for(int j = 0; j < WORLD_SIZE; j++){
+                if(active_chunks[i][j]){
+                    chunks[i][j].del();
+                }
+            }
+        }
     }
 };
 
