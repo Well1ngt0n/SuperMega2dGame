@@ -1,7 +1,6 @@
 #ifndef SUPERMEGA2DGAME_INVENTORY_H
 #define SUPERMEGA2DGAME_INVENTORY_H
 
-#define json std::map
 
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
@@ -17,6 +16,7 @@ struct Item {
     map<string, int> params; //string has no spaces
 
     Item() : id(-1), max_stack_size(64) {}
+    Item(int id, int mss) : id(id), max_stack_size(mss) {}
 };
 
 struct Slot {
@@ -24,15 +24,16 @@ struct Slot {
     bool is_active = false;
     Item item;
     int cnt = 0;
+
     [[nodiscard]] bool is_pressed(int, int) const;
 
-    void draw(sf::RenderWindow*, bool) const;
+    void draw(sf::RenderWindow *, bool) const;
 
-    void upload(std::ofstream&);
+    void upload(std::ofstream &);
 
-    void load(std::ifstream&);
+    void load(std::ifstream &);
 
-    void swap_item(Slot& other);
+    void swap_item(Slot &other);
 };
 
 
@@ -55,7 +56,7 @@ struct Inventory {
 
     void swap_hands();
 
-    void draw(sf::RenderWindow*);
+    void draw(sf::RenderWindow *);
 
     Slot &get_active_slot();
 
@@ -100,18 +101,20 @@ void Slot::draw(sf::RenderWindow *window, bool draw_slot_icon = true) const {
     }
 }
 
+
+
 void Slot::swap_item(Slot &other) {
     std::swap(other.item, item);
     std::swap(other.cnt, cnt);
 }
 
-void Slot::load(std::ifstream & in) {
+void Slot::load(std::ifstream &in) {
     in >> item.id;
-    if(item.id == -1) return;
+    if (item.id == -1) return;
     in >> item.max_stack_size >> cnt;
     int sz_params;
     in >> sz_params;
-    for(int i = 0; i < sz_params; i++){
+    for (int i = 0; i < sz_params; i++) {
         string name;
         int val;
         in >> name >> val;
@@ -119,14 +122,13 @@ void Slot::load(std::ifstream & in) {
     }
 }
 
-void Slot::upload(std::ofstream & out) {
-    if(item.id == -1){
+void Slot::upload(std::ofstream &out) {
+    if (item.id == -1) {
         out << -1 << '\n';
         return;
-    }
-    else{
+    } else {
         out << item.id << ' ' << item.max_stack_size << ' ' << cnt << ' ' << item.params.size() << ' ';
-        for(auto & i : item.params) out << i.first << ' ' << i.second << ' ';
+        for (auto &i: item.params) out << i.first << ' ' << i.second << ' ';
         out << '\n';
     }
 }
@@ -498,7 +500,7 @@ int Inventory::left_click_in_inventory(int x, int y) {
     return 0;
 }
 
-Slot& Inventory::get_active_slot() {
+Slot &Inventory::get_active_slot() {
     if (active_slot.first == 0) {
         return fast_pack[active_slot.second];
     } else if (active_slot.first == 1) {
@@ -587,26 +589,26 @@ Inventory::Inventory() {
 }
 
 void Inventory::load() {
-    std::ifstream in((dir_path+"inventory.inv").c_str());
-    if(!in.good()) return;
+    std::ifstream in((dir_path + "inventory.inv").c_str());
+    if (!in.good()) return;
     left_hand.load(in);
     right_hand.load(in);
-    for(auto & i : armor) i.load(in);
-    for(auto & i : fast_pack) i.load(in);
-    for(int i = 0; i < PACK_HEIGHT; i++){
-        for(int j = 0; j < PACK_WIDTH; j++) cock_pack[i][j].load(in);
+    for (auto &i: armor) i.load(in);
+    for (auto &i: fast_pack) i.load(in);
+    for (auto &i: cock_pack) {
+        for (auto &j: i) j.load(in);
     }
 }
 
 void Inventory::upload() {
-    std::ofstream out((dir_path+"inventory.inv").c_str());
-    if(!out.good()) return;
+    std::ofstream out((dir_path + "inventory.inv").c_str());
+    if (!out.good()) return;
     left_hand.upload(out);
     right_hand.upload(out);
-    for(auto & i : armor) i.upload(out);
-    for(auto & i : fast_pack) i.upload(out);
-    for(int i = 0; i < PACK_HEIGHT; i++){
-        for(int j = 0; j < PACK_WIDTH; j++) cock_pack[i][j].upload(out);
+    for (auto &i: armor) i.upload(out);
+    for (auto &i: fast_pack) i.upload(out);
+    for (auto &i: cock_pack) {
+        for (auto &j: i) j.upload(out);
     }
     out.close();
 }

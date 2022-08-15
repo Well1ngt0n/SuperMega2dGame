@@ -6,7 +6,7 @@ using std::string;
 const int
         MAX_TEXTURES_COUNT = 14,
         WORLD_SIZE = 256,
-        CHUNK_SIZE = 512,
+        CHUNK_SIZE = 300,
         MAX_RENDER_DISTANCE = 7,
         WORLD_PIXEL_SIZE = WORLD_SIZE * CHUNK_SIZE,
         ITEMS_COUNT = 2,

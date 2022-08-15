@@ -1,7 +1,6 @@
 //created by ООО "Разрабы Дауны"
 #ifndef UNTITLED4_ENGINE_H
 #define UNTITLED4_ENGINE_H
-#define json std::map
 
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
@@ -50,6 +49,53 @@ struct Game {
         return {nx, ny};
     }
 
+    struct DropItem : public sf::Sprite {
+        Item item;
+        int cnt = 0;
+        int x_coord{}, y_coord{};
+        float time_from_last_animation = 0;
+        int delta = 0;
+        bool dir = 1;
+
+        DropItem(Item item, int cnt, int x, int y) : item(item), cnt(cnt), x_coord(x), y_coord(y) {
+            this->setTexture(item_textures[item.id]);
+        }
+
+        explicit DropItem(Slot& slot) {
+            this->setTexture(item_textures[slot.item.id]);
+            item = slot.item;
+            cnt = slot.cnt;
+        }
+
+        Slot get_slot() const {
+            Slot x;
+            x.item = item;
+            x.cnt = cnt;
+            return x;
+        }
+
+        void draw(int player_x, int player_y, sf::RenderWindow *window) {
+            auto[x_window, y_window] = get_window_coords(x_coord, y_coord, player_x, player_y);
+            this->setPosition(x_window, y_window-delta);
+            window->draw(*this);
+            if (cnt > 1) {
+                this->setPosition(x_window + SLOT_PIXEL_SIZE / 8, y_window-delta+ SLOT_PIXEL_SIZE / 8);
+                window->draw(*this);
+            }
+        }
+        void update(std::chrono::duration<float> &time_passed) {
+            time_from_last_animation += time_passed.count();
+            if(time_from_last_animation * 1000 >= 30){
+                time_from_last_animation = 0;
+                if(delta == 16 && dir) dir = 0;
+                else if(delta == 0 && !dir) dir = 1;
+                else{
+                    delta += 2*dir-1;
+                }
+            }
+        }
+    };
+
 
     struct Object : public sf::Sprite {
         Object(int n_x, int n_y, int n_id) : x_coord{n_x}, y_coord{n_y}, id{n_id} {
@@ -69,13 +115,13 @@ struct Game {
 
         int x_coord, y_coord, id, cur_texture = 0, time_animation;
         float time_from_last_animation;
-        json<string, string> parameters;
+        map<string, int> parameters;
         int static_texture;
         bool animation = false;
         vector<int> animated_texture;
 
         void draw(int player_x, int player_y, sf::RenderWindow *window) {
-            auto [x_window, y_window] = get_window_coords(x_coord, y_coord, player_x, player_y);
+            auto[x_window, y_window] = get_window_coords(x_coord, y_coord, player_x, player_y);
             //std::cout << x_window << ' ' << y_window << std::endl;
             this->setPosition(x_window, y_window);
             window->draw(*this);
@@ -192,7 +238,7 @@ struct Game {
                 dx = 0;
                 dy = 0;
             }
-            auto [width, height] = this->getTexture()->getSize();
+            auto[width, height] = this->getTexture()->getSize();
             setPosition(window_width / 2 - width / 2, window_height / 2 - height / 2);
         }
 
@@ -209,7 +255,7 @@ struct Game {
         int attack = 0;
     };
 
-    Player player{};
+    Player player;
 
 
     struct Mob : public MovableObject {
@@ -235,6 +281,7 @@ struct Game {
 
     struct Chunk {
         vector<Mob> mobs;
+        vector<DropItem> drop_items;//= {DropItem(Item(1, 64), 10, 200, 200)};
         vector<Object> objects;
         sf::Color color;
         int x_coord, y_coord;
@@ -242,7 +289,8 @@ struct Game {
         void load(int x, int y) {
             x_coord = x, y_coord = y;
             std::ifstream f(
-                    ("../chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str());
+                    (dir_path + "chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) +
+                     ".chunk").c_str());
             color = {uint8_t(std::rand() % 256), uint8_t(std::rand() % 256), uint8_t(std::rand() % 256), 255};
             if (!f.good()) return;
             int mobs_cnt;
@@ -260,15 +308,23 @@ struct Game {
                 f >> obj_type >> obj_x >> obj_y;
                 objects.emplace_back(Object(obj_x, obj_y, obj_type));
             }
+
+            int items_cnt;
+            f >> items_cnt;
+            for (int i = 0; i < items_cnt; i++) {
+                Slot x;
+                x.load(f);
+                drop_items.emplace_back(x);
+                int item_x, item_y;
+                f >> item_x >> item_y;
+                drop_items.back().x_coord = item_x, drop_items.back().y_coord = item_y;
+            }
+            f.close();
         }
 
         void upload() {
-            std::ofstream test(
-                    (".//chunks//" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
-                    std::ios::in);
-            if (!test.good()) return;
             std::ofstream f(
-                    (".//chunks//" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
+                    (dir_path + "chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
                     std::ios::out | std::ios::trunc);
             if (!f.good()) return;
             int mobs_cnt = mobs.size();
@@ -281,6 +337,15 @@ struct Game {
             for (int i = 0; i < obj_cnt; ++i) {
                 f << objects[i].id << ' ' << objects[i].x_coord << ' ' << objects[i].y_coord << '\n';
             }
+
+            int items_cnt = drop_items.size();
+            f << items_cnt << '\n';
+            for (int i = 0; i < items_cnt; i++) {
+                Slot x = drop_items[i].get_slot();
+                x.upload(f);
+                f << drop_items[i].x_coord << ' ' << drop_items[i].y_coord << '\n';
+            }
+            f.close();
         }
 
         void draw(int player_x, int player_y, sf::RenderWindow *window) {
@@ -298,6 +363,8 @@ struct Game {
             upload();
             mobs.clear();
             mobs.shrink_to_fit();
+            drop_items.clear();
+            drop_items.shrink_to_fit();
             objects.clear();
             objects.shrink_to_fit();
         }
@@ -479,20 +546,24 @@ struct Game {
         player.move(time_passed);
     }
 
-    static bool cmp_objects_for_rendering(Object a, Object b) {
+    template<class T>
+    static bool cmp_objects_for_rendering(const T &a, const T &b) {
         return a.y_coord > b.y_coord;
     }
 
     void draw() {
         vector<Object> pool_objects;
         vector<Mob> pool_mobs;
-        int dx[4] = {-1, -1, 1, 1};
-        int dy[4] = {1, -1, -1, 1};
+        vector<DropItem> pool_items;
+        int dx[4] = {-1, 1, 1, -1};
+        int dy[4] = {1, 1, -1, -1};
+        int x = player.x_coord / CHUNK_SIZE, y = player.y_coord / CHUNK_SIZE;
+
         for (int d = 0; d <= MAX_RENDER_DISTANCE + 1; d++) {
-            for (int i = 0; i <= d; ++i) {
-                int j = d - i;
-                for (int k = 0; k < 4; k++) {
-                    int x = player.x_coord / CHUNK_SIZE, y = player.y_coord / CHUNK_SIZE;
+            for (int i_ = 0; i_ < (d==0?1:d); ++i_) {
+                for (int k = 0; k < (d==0?1:4); k++) {
+                    int i = i_ + (k&1);
+                    int j = d - i;
                     int nx = (x + dx[k] * i + WORLD_SIZE) % WORLD_SIZE, ny = (y + dy[k] * j + WORLD_SIZE) % WORLD_SIZE;
                     if (d == MAX_RENDER_DISTANCE + 1 && active_chunks[nx][ny]) {
                         active_chunks[nx][ny] = false;
@@ -509,29 +580,40 @@ struct Game {
                             //mob.move();
                             pool_mobs.emplace_back(mob);
                         }
+                       for (auto &item: chunks[nx][ny].drop_items) {
+                            item.update(time_passed);
+                            pool_items.push_back(item);
+                        }
                         for (auto &object: chunks[nx][ny].objects) {
                             object.update(time_passed);
                             pool_objects.emplace_back(object);
                         }
+
                     }
                 }
             }
         }
-        sort(pool_objects.begin(), pool_objects.end(), cmp_objects_for_rendering);
-        sort(pool_mobs.begin(), pool_mobs.end(), cmp_objects_for_rendering);
+        sort(pool_objects.begin(), pool_objects.end(), cmp_objects_for_rendering<Object>);
+        sort(pool_mobs.begin(), pool_mobs.end(), cmp_objects_for_rendering<Object>);
+        sort(pool_items.begin(), pool_items.end(), cmp_objects_for_rendering<DropItem>);
         bool player_drawed = false;
-        while (!pool_objects.empty() || !pool_mobs.empty() || !player_drawed) {
+        while (!pool_objects.empty() || !pool_mobs.empty() || !pool_items.empty() || !player_drawed) {
             int y_cur_object = (pool_objects.empty() ? WORLD_PIXEL_SIZE : pool_objects.back().y_coord);
             int y_cur_mob = (pool_mobs.empty() ? WORLD_PIXEL_SIZE : pool_mobs.back().y_coord);
-            if (!player_drawed && player.y_coord < y_cur_mob && player.y_coord < y_cur_object) {
+            int y_cur_item = (pool_items.empty() ? WORLD_PIXEL_SIZE : pool_items.back().y_coord);
+            int min_y_coord = std::min({y_cur_object, y_cur_item, y_cur_mob});
+            if (!player_drawed && player.y_coord < min_y_coord) {
                 player_drawed = true;
                 player.draw(window);
-            } else if (y_cur_object < y_cur_mob) {
+            } else if (y_cur_object == min_y_coord) {
                 pool_objects.back().draw(player.x_coord, player.y_coord, window);
                 pool_objects.pop_back();
-            } else {
+            } else if (y_cur_mob == min_y_coord) {
                 pool_mobs.back().draw(player.x_coord, player.y_coord, window);
                 pool_mobs.pop_back();
+            } else {
+                pool_items.back().draw(player.x_coord, player.y_coord, window);
+                pool_items.pop_back();
             }
         }
 
@@ -545,7 +627,7 @@ struct Game {
         return last_sleep_time;
     }
 
-    void exit(){
+    void exit() {
         player.inventory.upload();
     }
 };

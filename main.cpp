@@ -5,7 +5,7 @@ int main() {
     sf::RenderWindow window(sf::VideoMode(window_width, window_height), "GameBebra beta"/*, sf::Style::Fullscreen*/);
     init_textures();
     Game game(&window);
-    game.player.inventory.load();
+    //game.player.inventory.load();
     window.clear({0, 0, 100, 255});
     while (window.isOpen()) {
         sf::Event event{};
