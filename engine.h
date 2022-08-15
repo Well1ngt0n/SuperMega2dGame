@@ -8,11 +8,6 @@
 #include <bits/stdc++.h>
 #include "inventory.h"
 
-// #include "rapidjson/document.h"
-// #include "rapidjson/writer.h"
-// #include "rapidjson/stringbuffer.h"
-
-
 bool active_chunks[WORLD_SIZE][WORLD_SIZE];
 
 struct Game {
@@ -48,54 +43,6 @@ struct Game {
         }
         return {nx, ny};
     }
-
-    struct DropItem : public sf::Sprite {
-        Item item;
-        int cnt = 0;
-        int x_coord{}, y_coord{};
-        float time_from_last_animation = 0;
-        int delta = 0;
-        bool dir = 1;
-
-        DropItem(Item item, int cnt, int x, int y) : item(item), cnt(cnt), x_coord(x), y_coord(y) {
-            this->setTexture(item_textures[item.id]);
-        }
-
-        explicit DropItem(Slot& slot) {
-            this->setTexture(item_textures[slot.item.id]);
-            item = slot.item;
-            cnt = slot.cnt;
-        }
-
-        Slot get_slot() const {
-            Slot x;
-            x.item = item;
-            x.cnt = cnt;
-            return x;
-        }
-
-        void draw(int player_x, int player_y, sf::RenderWindow *window) {
-            auto[x_window, y_window] = get_window_coords(x_coord, y_coord, player_x, player_y);
-            this->setPosition(x_window, y_window-delta);
-            window->draw(*this);
-            if (cnt > 1) {
-                this->setPosition(x_window + SLOT_PIXEL_SIZE / 8, y_window-delta+ SLOT_PIXEL_SIZE / 8);
-                window->draw(*this);
-            }
-        }
-        void update(std::chrono::duration<float> &time_passed) {
-            time_from_last_animation += time_passed.count();
-            if(time_from_last_animation * 1000 >= 30){
-                time_from_last_animation = 0;
-                if(delta == 16 && dir) dir = 0;
-                else if(delta == 0 && !dir) dir = 1;
-                else{
-                    delta += 2*dir-1;
-                }
-            }
-        }
-    };
-
 
     struct Object : public sf::Sprite {
         Object(int n_x, int n_y, int n_id) : x_coord{n_x}, y_coord{n_y}, id{n_id} {
@@ -276,6 +223,77 @@ struct Game {
 
         void logic() {
 
+        }
+    };
+
+
+    struct DropItem : public sf::Sprite {
+        Item item;
+        int cnt = 0;
+        float x_coord{}, y_coord{};
+        float time_from_last_animation = 0;
+        char delta = 0;
+        bool dir = 1;
+        bool is_run = false;
+
+        DropItem(Item& item, int cnt, int x, int y) : item(item), cnt(cnt), x_coord(x), y_coord(y) {
+            this->setTexture(item_textures[item.id]);
+        }
+
+        explicit DropItem(Slot& slot) {
+            this->setTexture(item_textures[slot.item.id]);
+            item = slot.item;
+            cnt = slot.cnt;
+        }
+
+        Slot get_slot() const {
+            Slot x;
+            x.item = item;
+            x.cnt = cnt;
+            return x;
+        }
+
+        void draw(int player_x, int player_y, sf::RenderWindow *window) {
+            auto[x_window, y_window] = get_window_coords(x_coord, y_coord, player_x, player_y);
+            this->setPosition(x_window, y_window-delta);
+            window->draw(*this);
+            if (cnt > 1) {
+                this->setPosition(x_window + SLOT_PIXEL_SIZE / 8, y_window-delta+ SLOT_PIXEL_SIZE / 8);
+                window->draw(*this);
+            }
+        }
+        void update(std::chrono::duration<float> &time_passed, Player& player) {
+            time_from_last_animation += time_passed.count();
+            if(time_from_last_animation * 1000 >= 30){
+                time_from_last_animation = 0;
+                if(delta == 16 && dir) dir = 0;
+                else if(delta == 0 && !dir) dir = 1;
+                else{
+                    delta += 2*dir-1;
+                }
+            }
+            if(is_run){
+                float dx1 = player.x_coord - x_coord;
+                float dx2 = +player.x_coord - WORLD_PIXEL_SIZE - x_coord;
+                float dx3 = -x_coord + WORLD_PIXEL_SIZE + player.x_coord;
+
+                float dy1 = player.y_coord - y_coord;
+                float dy2 = player.y_coord - WORLD_PIXEL_SIZE - y_coord;
+                float dy3 = -y_coord + player.y_coord + WORLD_PIXEL_SIZE;
+
+                float dx = (fabs(dx1) < fabs(dx2) ? fabs(dx3) < fabs(dx1) ? dx3 : dx1 : fabs(dx3) < fabs(dx2) ? dx3 : dx2), dy = (fabs(dy1) < fabs(dy2) ? fabs(dy3) < fabs(dy1) ? dy3 : dy1 : fabs(dy3) < fabs(dy2) ? dy3 : dy2);
+
+                if(hypot(dx, dy) < 10){
+
+                }
+
+                x_coord = x_coord + 10 * dx * time_passed.count();
+                y_coord = y_coord + 10 * dy * time_passed.count();
+                while (x_coord < 0) x_coord += WORLD_PIXEL_SIZE;
+                while (y_coord < 0) y_coord += WORLD_PIXEL_SIZE;
+                while (x_coord >= WORLD_PIXEL_SIZE) x_coord -= WORLD_PIXEL_SIZE;
+                while (y_coord >= WORLD_PIXEL_SIZE) y_coord -= WORLD_PIXEL_SIZE;
+            }
         }
     };
 
@@ -486,6 +504,22 @@ struct Game {
                     player.inventory.fast_pack[9].is_active = true;
                     player.inventory.active_slot = {0, 9};
                     break;
+                case sf::Keyboard::Space:
+                    {
+                        int x = player.x_coord / CHUNK_SIZE, y = player.y_coord / CHUNK_SIZE;
+                        for (int i = x - 1; i <= x + 1; i++) {
+                            for (int j = y - 1; j <= y + 1; j++) {
+                                int nx = (i < 0 ? i + WORLD_SIZE : i >= WORLD_SIZE ? i - WORLD_SIZE:i);
+                                int ny = (j < 0 ? j + WORLD_SIZE : j >= WORLD_SIZE ? j - WORLD_SIZE:j);
+                                for (auto &item: chunks[nx][ny].drop_items) {
+                                    if (hypot(item.x_coord - player.x_coord, item.y_coord - player.y_coord) <= 128) {
+                                        item.is_run = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    break;
                 default:
                     break;
             }
@@ -581,7 +615,7 @@ struct Game {
                             pool_mobs.emplace_back(mob);
                         }
                        for (auto &item: chunks[nx][ny].drop_items) {
-                            item.update(time_passed);
+                            item.update(time_passed, player);
                             pool_items.push_back(item);
                         }
                         for (auto &object: chunks[nx][ny].objects) {
