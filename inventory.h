@@ -46,7 +46,6 @@ struct Inventory {
     Slot armor[4];
     std::pair<int, int> active_slot = {0, 0}; // default nums
     bool is_cock_pack_open = false;
-    bool is_item_in_mouse = false;
 
     Inventory();
 
@@ -137,7 +136,7 @@ void Slot::upload(std::ofstream &out) {
 
 int Inventory::right_click_in_inventory(int x, int y) {
     if (left_hand.is_pressed(x, y)) {
-        if (is_item_in_mouse) {
+        if (invisible_mouse_slot.item.id != -1) {
             if (left_hand.item.id == invisible_mouse_slot.item.id &&
                 left_hand.item.max_stack_size != 1) {
                 int &cnt1 = left_hand.cnt, &cnt2 = invisible_mouse_slot.cnt;
@@ -147,7 +146,6 @@ int Inventory::right_click_in_inventory(int x, int y) {
                     cnt2 -= 1;
                     if (cnt2 == 0) {
                         invisible_mouse_slot.item = Item();
-                        is_item_in_mouse = false;
                     }
                 } // else do nothing
             } else if (left_hand.item.id == -1) {
@@ -156,7 +154,6 @@ int Inventory::right_click_in_inventory(int x, int y) {
                 invisible_mouse_slot.cnt -= 1;
                 if (invisible_mouse_slot.cnt == 0) {
                     invisible_mouse_slot.item = Item();
-                    is_item_in_mouse = false;
                 }
             }
         } else if (left_hand.item.id != -1) {
@@ -165,7 +162,6 @@ int Inventory::right_click_in_inventory(int x, int y) {
             cnt -= to_mouse;
             invisible_mouse_slot.item = left_hand.item;
             invisible_mouse_slot.cnt = to_mouse;
-            is_item_in_mouse = true;
             if (cnt == 0) {
                 left_hand.item = Item();
             }
@@ -173,7 +169,7 @@ int Inventory::right_click_in_inventory(int x, int y) {
         return 1;
     }
     if (right_hand.is_pressed(x, y)) {
-        if (is_item_in_mouse) {
+        if (invisible_mouse_slot.item.id != -1) {
             if (right_hand.item.id == invisible_mouse_slot.item.id &&
                 right_hand.item.max_stack_size != 1) {
                 int &cnt1 = right_hand.cnt, &cnt2 = invisible_mouse_slot.cnt;
@@ -183,7 +179,6 @@ int Inventory::right_click_in_inventory(int x, int y) {
                     cnt2 -= 1;
                     if (cnt2 == 0) {
                         invisible_mouse_slot.item = Item();
-                        is_item_in_mouse = false;
                     }
                 } // else do nothing
             } else if (right_hand.item.id == -1) {
@@ -192,7 +187,6 @@ int Inventory::right_click_in_inventory(int x, int y) {
                 invisible_mouse_slot.cnt -= 1;
                 if (invisible_mouse_slot.cnt == 0) {
                     invisible_mouse_slot.item = Item();
-                    is_item_in_mouse = false;
                 }
             }
         } else if (right_hand.item.id != -1) {
@@ -201,7 +195,6 @@ int Inventory::right_click_in_inventory(int x, int y) {
             cnt -= to_mouse;
             invisible_mouse_slot.item = right_hand.item;
             invisible_mouse_slot.cnt = to_mouse;
-            is_item_in_mouse = true;
             if (cnt == 0) {
                 right_hand.item = Item();
             }
@@ -213,7 +206,7 @@ int Inventory::right_click_in_inventory(int x, int y) {
     for (int i = 0; i < 4; i++) {
         if (armor[i].is_pressed(x, y)) {
             flag = true;
-            if (is_item_in_mouse) {
+            if (invisible_mouse_slot.item.id != -1) {
                 if (armor[i].item.id == invisible_mouse_slot.item.id &&
                     armor[i].item.max_stack_size != 1) {
                     int &cnt1 = armor[i].cnt, &cnt2 = invisible_mouse_slot.cnt;
@@ -223,7 +216,6 @@ int Inventory::right_click_in_inventory(int x, int y) {
                         cnt2 -= 1;
                         if (cnt2 == 0) {
                             invisible_mouse_slot.item = Item();
-                            is_item_in_mouse = false;
                         }
                     } // else do nothing
                 } else if (armor[i].item.id == -1) {
@@ -232,7 +224,6 @@ int Inventory::right_click_in_inventory(int x, int y) {
                     invisible_mouse_slot.cnt -= 1;
                     if (invisible_mouse_slot.cnt == 0) {
                         invisible_mouse_slot.item = Item();
-                        is_item_in_mouse = false;
                     }
                 }
             } else if (armor[i].item.id != -1 && armor[i].is_active) {
@@ -241,7 +232,6 @@ int Inventory::right_click_in_inventory(int x, int y) {
                 cnt -= to_mouse;
                 invisible_mouse_slot.item = armor[i].item;
                 invisible_mouse_slot.cnt = to_mouse;
-                is_item_in_mouse = true;
                 if (cnt == 0) {
                     armor[i].item = Item();
                 }
@@ -256,7 +246,7 @@ int Inventory::right_click_in_inventory(int x, int y) {
     for (int i = 0; i < FAST_PACK_SIZE; i++) {
         if (fast_pack[i].is_pressed(x, y)) {
             flag = true;
-            if (is_item_in_mouse) {
+            if (invisible_mouse_slot.item.id != -1) {
                 if (fast_pack[i].item.id == invisible_mouse_slot.item.id &&
                     fast_pack[i].item.max_stack_size != 1) {
                     int &cnt1 = fast_pack[i].cnt, &cnt2 = invisible_mouse_slot.cnt;
@@ -266,7 +256,6 @@ int Inventory::right_click_in_inventory(int x, int y) {
                         cnt2 -= 1;
                         if (cnt2 == 0) {
                             invisible_mouse_slot.item = Item();
-                            is_item_in_mouse = false;
                         }
                     } // else do nothing
                 } else if (fast_pack[i].item.id == -1) {
@@ -275,7 +264,6 @@ int Inventory::right_click_in_inventory(int x, int y) {
                     invisible_mouse_slot.cnt -= 1;
                     if (invisible_mouse_slot.cnt == 0) {
                         invisible_mouse_slot.item = Item();
-                        is_item_in_mouse = false;
                     }
                 }
             } else if (fast_pack[i].item.id != -1 && fast_pack[i].is_active) {
@@ -284,7 +272,6 @@ int Inventory::right_click_in_inventory(int x, int y) {
                 cnt -= to_mouse;
                 invisible_mouse_slot.item = fast_pack[i].item;
                 invisible_mouse_slot.cnt = to_mouse;
-                is_item_in_mouse = true;
                 if (cnt == 0) {
                     fast_pack[i].item = Item();
                 }
@@ -301,7 +288,7 @@ int Inventory::right_click_in_inventory(int x, int y) {
             for (int j = 0; j < PACK_WIDTH; j++) {
                 if (cock_pack[i][j].is_pressed(x, y)) {
                     flag = true;
-                    if (is_item_in_mouse) {
+                    if (invisible_mouse_slot.item.id != -1) {
                         if (cock_pack[i][j].item.id == invisible_mouse_slot.item.id &&
                             cock_pack[i][j].item.max_stack_size != 1) {
                             int &cnt1 = cock_pack[i][j].cnt, &cnt2 = invisible_mouse_slot.cnt;
@@ -311,7 +298,6 @@ int Inventory::right_click_in_inventory(int x, int y) {
                                 cnt2 -= 1;
                                 if (cnt2 == 0) {
                                     invisible_mouse_slot.item = Item();
-                                    is_item_in_mouse = false;
                                 }
                             } // else do nothing
                         } else if (cock_pack[i][j].item.id == -1) {
@@ -320,7 +306,6 @@ int Inventory::right_click_in_inventory(int x, int y) {
                             invisible_mouse_slot.cnt -= 1;
                             if (invisible_mouse_slot.cnt == 0) {
                                 invisible_mouse_slot.item = Item();
-                                is_item_in_mouse = false;
                             }
                         }
                     } else if (cock_pack[i][j].item.id != -1 && cock_pack[i][j].is_active) {
@@ -329,7 +314,6 @@ int Inventory::right_click_in_inventory(int x, int y) {
                         cnt -= to_mouse;
                         invisible_mouse_slot.item = cock_pack[i][j].item;
                         invisible_mouse_slot.cnt = to_mouse;
-                        is_item_in_mouse = true;
                         if (cnt == 0) {
                             cock_pack[i][j].item = Item();
                         }
@@ -348,7 +332,7 @@ int Inventory::right_click_in_inventory(int x, int y) {
 
 int Inventory::left_click_in_inventory(int x, int y) {
     if (left_hand.is_pressed(x, y)) {
-        if (is_item_in_mouse) {
+        if (invisible_mouse_slot.item.id != -1) {
             if (left_hand.item.id == invisible_mouse_slot.item.id &&
                 left_hand.item.max_stack_size != 1) {
                 int &cnt1 = left_hand.cnt, &cnt2 = invisible_mouse_slot.cnt;
@@ -356,23 +340,20 @@ int Inventory::left_click_in_inventory(int x, int y) {
                 if (cnt1 + cnt2 <= mx) {
                     cnt1 += cnt2;
                     invisible_mouse_slot.item = Item();
-                    is_item_in_mouse = false;
                 } else {
                     cnt2 = cnt1 + cnt2 - mx;
                     cnt1 = mx;
                 }
             } else {
-                is_item_in_mouse = (left_hand.item.id != -1);
                 invisible_mouse_slot.swap_item(left_hand);
             }
         } else {
-            is_item_in_mouse = (left_hand.item.id != -1);
             invisible_mouse_slot.swap_item(left_hand);
         }
         return 1;
     }
     if (right_hand.is_pressed(x, y)) {
-        if (is_item_in_mouse) {
+        if (invisible_mouse_slot.item.id != -1) {
             if (right_hand.item.id == invisible_mouse_slot.item.id &&
                 right_hand.item.max_stack_size != 1) {
                 int &cnt1 = right_hand.cnt, &cnt2 = invisible_mouse_slot.cnt;
@@ -380,17 +361,14 @@ int Inventory::left_click_in_inventory(int x, int y) {
                 if (cnt1 + cnt2 <= mx) {
                     cnt1 += cnt2;
                     invisible_mouse_slot.item = Item();
-                    is_item_in_mouse = false;
                 } else {
                     cnt2 = cnt1 + cnt2 - mx;
                     cnt1 = mx;
                 }
             } else {
-                is_item_in_mouse = (right_hand.item.id != -1);
                 invisible_mouse_slot.swap_item(right_hand);
             }
         } else {
-            is_item_in_mouse = (right_hand.item.id != -1);
             invisible_mouse_slot.swap_item(right_hand);
         }
         return 2;
@@ -399,9 +377,8 @@ int Inventory::left_click_in_inventory(int x, int y) {
     for (int i = 0; i < 4; i++) {
         if (armor[i].is_pressed(x, y)) {
             flag = true;
-            if (!is_item_in_mouse) {
+            if (!invisible_mouse_slot.item.id != -1) {
                 if (armor[i].is_active) {
-                    is_item_in_mouse = true;
                     invisible_mouse_slot.swap_item(armor[i]);
                 }
             } else {
@@ -412,13 +389,11 @@ int Inventory::left_click_in_inventory(int x, int y) {
                     if (cnt1 + cnt2 <= mx) {
                         cnt1 += cnt2;
                         invisible_mouse_slot.item = Item();
-                        is_item_in_mouse = false;
                     } else {
                         cnt2 = cnt1 + cnt2 - mx;
                         cnt1 = mx;
                     }
                 } else {
-                    is_item_in_mouse = (armor[i].item.id != -1);
                     invisible_mouse_slot.swap_item(armor[i]);
                 }
             }
@@ -432,9 +407,8 @@ int Inventory::left_click_in_inventory(int x, int y) {
     for (int i = 0; i < FAST_PACK_SIZE; i++) {
         if (fast_pack[i].is_pressed(x, y)) {
             flag = true;
-            if (!is_item_in_mouse) {
+            if (invisible_mouse_slot.item.id == -1) {
                 if (fast_pack[i].is_active) {
-                    is_item_in_mouse = true;
                     invisible_mouse_slot.swap_item(fast_pack[i]);
                 }
             } else {
@@ -445,13 +419,11 @@ int Inventory::left_click_in_inventory(int x, int y) {
                     if (cnt1 + cnt2 <= mx) {
                         cnt1 += cnt2;
                         invisible_mouse_slot.item = Item();
-                        is_item_in_mouse = false;
                     } else {
                         cnt2 = cnt1 + cnt2 - mx;
                         cnt1 = mx;
                     }
                 } else {
-                    is_item_in_mouse = (fast_pack[i].item.id != -1);
                     invisible_mouse_slot.swap_item(fast_pack[i]);
                 }
             }
@@ -467,9 +439,8 @@ int Inventory::left_click_in_inventory(int x, int y) {
             for (int j = 0; j < PACK_WIDTH; j++) {
                 if (cock_pack[i][j].is_pressed(x, y)) {
                     flag = true;
-                    if (!is_item_in_mouse) {
+                    if (invisible_mouse_slot.item.id == -1) {
                         if (cock_pack[i][j].is_active) {
-                            is_item_in_mouse = true;
                             invisible_mouse_slot.swap_item(cock_pack[i][j]);
                         }
                     } else {
@@ -480,13 +451,11 @@ int Inventory::left_click_in_inventory(int x, int y) {
                             if (cnt1 + cnt2 <= mx) {
                                 cnt1 += cnt2;
                                 invisible_mouse_slot.item = Item();
-                                is_item_in_mouse = false;
                             } else {
                                 cnt2 = cnt1 + cnt2 - mx;
                                 cnt1 = mx;
                             }
                         } else {
-                            is_item_in_mouse = (cock_pack[i][j].item.id != -1);
                             invisible_mouse_slot.swap_item(cock_pack[i][j]);
                         }
                     }
@@ -528,7 +497,7 @@ void Inventory::draw(sf::RenderWindow *window) {
             }
         }
     }
-    if (is_item_in_mouse) {
+    if (invisible_mouse_slot.item.id != -1) {
         invisible_mouse_slot.draw(window, false);
     }
 }
@@ -561,12 +530,6 @@ void Inventory::left_swap() {
 Inventory::Inventory() {
     active_slot_sprite.setTexture(textures[9]);
     default_slot_sprite.setTexture(textures[8]);
-    right_hand.item.id = 1; // test
-    right_hand.cnt = 10;
-    right_hand.item.params["cock"] = 10;
-    left_hand.item.id = 0; // test
-    left_hand.cnt = 56;
-    is_item_in_mouse = false;
     left_hand.x_pix = SLOT_PIXEL_SIZE / 2;
     left_hand.y_pix = 2 * SLOT_PIXEL_SIZE;
     right_hand.x_pix = SLOT_PIXEL_SIZE / 2 + SLOT_PIXEL_SIZE + 2 * SLOT_PIXEL_SIZE;

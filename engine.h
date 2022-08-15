@@ -194,6 +194,7 @@ struct Game {
         int objects_run = 0;
         int walk = 0;
         int attack = 0;
+
     };
 
     Player player;
@@ -594,8 +595,9 @@ struct Game {
                                                                                                     ? dy3 : dy2);
 
                                     if (hypot(dx, dy) <= 128) {
+                                        player.objects_run += 1^item.is_run;
                                         item.is_run = true;
-                                        player.objects_run++;
+                                        player.speed = 50;
                                     }
                                 }
                             }
@@ -626,7 +628,7 @@ struct Game {
         } else if (event.type == sf::Event::MouseButtonPressed) {
             if (event.mouseButton.button == sf::Mouse::Left) {
                 if (player.inventory.left_click_in_inventory(event.mouseButton.x, event.mouseButton.y));
-                else if(player.inventory.is_item_in_mouse) {
+                else if(player.inventory.invisible_mouse_slot.item.id != -1) {
                     int dx = event.mouseButton.x - window_width / 2, dy = event.mouseButton.y - window_height / 2;
                     double x, y;
                     if(hypot(dx, dy) < radius){
@@ -642,7 +644,7 @@ struct Game {
                 }
             } else if (event.mouseButton.button == sf::Mouse::Right) {
                 if (player.inventory.right_click_in_inventory(event.mouseButton.x, event.mouseButton.y));
-                else if(player.inventory.is_item_in_mouse){
+                else if(player.inventory.invisible_mouse_slot.item.id != -1){
                     int dx = event.mouseButton.x - window_width / 2, dy = event.mouseButton.y - window_height / 2;
                     double x, y;
                     if(hypot(dx, dy) < radius){
@@ -732,11 +734,18 @@ struct Game {
                                 player.inventory.add(slot);
                                 if(slot.item.id == -1){
                                     it = chunks[nx][ny].drop_items.erase(it);
+                                    std::cout << player.objects_run - 1 << std::endl;
+                                    if(!(--player.objects_run)){
+                                        player.speed = 300;
+                                    }
                                     continue;
                                 }
                                 else{
                                     it->is_run = false;
-                                    player.objects_run--;
+                                }
+                                std::cout << player.objects_run - 1 << std::endl;
+                                if(!(--player.objects_run)){
+                                    player.speed = 300;
                                 }
                             }
                             it++;
