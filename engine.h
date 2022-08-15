@@ -276,9 +276,8 @@ struct Game {
 
                 int dx = (abs(dx1) < abs(dx2) ? abs(dx3) < abs(dx1) ? dx3 : dx1 : abs(dx3) < abs(dx2) ? dx3 : dx2), dy = (abs(dy1) < abs(dy2) ? abs(dy3) < abs(dy1) ? dy3 : dy1 : abs(dy3) < abs(dy2) ? dy3 : dy2);
 
-                if(hypot(dx, dy) < 10){
+                if(hypot(dx, dy) < 48){
                     return 1;
-                    // TODO: загрузить в инвентарь, скорее всего извне функции
                 }
 
                 int prx = x_coord, pry = y_coord;
@@ -342,6 +341,7 @@ struct Game {
         }
 
         void upload() {
+            if(mobs.size() + objects.size() + drop_items.size() == 0) return;
             std::ofstream f(
                     (dir_path + "chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
                     std::ios::out | std::ios::trunc);
@@ -513,7 +513,21 @@ struct Game {
                                 int nx = (i < 0 ? i + WORLD_SIZE : i >= WORLD_SIZE ? i - WORLD_SIZE:i);
                                 int ny = (j < 0 ? j + WORLD_SIZE : j >= WORLD_SIZE ? j - WORLD_SIZE:j);
                                 for (auto &item: chunks[nx][ny].drop_items) {
-                                    if (hypot(item.x_coord - player.x_coord, item.y_coord - player.y_coord) <= 128) {
+                                    int dx1 = player.x_coord - item.x_coord;
+                                    int dx2 = +player.x_coord - WORLD_PIXEL_SIZE - item.x_coord;
+                                    int dx3 = -item.x_coord + WORLD_PIXEL_SIZE + player.x_coord;
+
+                                    int dy1 = player.y_coord - item.y_coord;
+                                    int dy2 = player.y_coord - WORLD_PIXEL_SIZE - item.y_coord;
+                                    int dy3 = -item.y_coord + player.y_coord + WORLD_PIXEL_SIZE;
+
+                                    int dx = (abs(dx1) < abs(dx2) ? abs(dx3) < abs(dx1) ? dx3 : dx1 : abs(dx3) <
+                                                                                                      abs(dx2) ? dx3
+                                                                                                               : dx2), dy = (
+                                            abs(dy1) < abs(dy2) ? abs(dy3) < abs(dy1) ? dy3 : dy1 : abs(dy3) < abs(dy2)
+                                                                                                    ? dy3 : dy2);
+
+                                    if (hypot(dx, dy) <= 128) {
                                         item.is_run = true;
                                     }
                                 }
