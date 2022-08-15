@@ -19,12 +19,6 @@ struct Game {
     Game(sf::RenderWindow *n_window) : window{n_window} {
         std::srand(std::time(nullptr));
         chunks.resize(WORLD_SIZE, vector<Chunk>(WORLD_SIZE));
-        test_font.loadFromFile("../Hack-Regular.ttf");
-        cnt_font.loadFromFile("../fonts/Vogue Bold.ttf");
-
-        for (int i = 0; i < WORLD_SIZE; ++i)
-            for (int j = 0; j < WORLD_SIZE; ++j)
-                active_chunks[i][j] = false;
 
         last_update_time = std::chrono::system_clock::now();
     }
@@ -628,10 +622,20 @@ struct Game {
                                 chunks[it->x_coord/CHUNK_SIZE][it->y_coord/CHUNK_SIZE].drop_items.push_back(*it);
                                 std::cout << "kok" << std::endl;
                                 it = chunks[nx][ny].drop_items.erase(it);
+                                continue;
                             }
-                            else{
-                                it++;
+                            else if(kok == 1){
+                                auto slot = it->get_slot();
+                                player.inventory.add(slot);
+                                if(slot.item.id == -1){
+                                    it = chunks[nx][ny].drop_items.erase(it);
+                                    continue;
+                                }
+                                else{
+                                    it->is_run = false;
+                                }
                             }
+                            it++;
                         }
                         for (auto &object: chunks[nx][ny].objects) {
                             object.update(time_passed);
@@ -678,13 +682,14 @@ struct Game {
 
     void exit() {
         player.inventory.upload();
-        for(int i = 0; i < WORLD_SIZE; i++){
+        /*for(int i = 0; i < WORLD_SIZE; i++){
             for(int j = 0; j < WORLD_SIZE; j++){
                 if(active_chunks[i][j]){
                     chunks[i][j].del();
                 }
             }
-        }
+        }*/
+        // выгрузка всех чанков при выходе
     }
 };
 

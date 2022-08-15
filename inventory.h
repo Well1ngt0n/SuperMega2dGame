@@ -67,6 +67,8 @@ struct Inventory {
     void upload();
 
     void load();
+
+    void add(Slot&);
 };
 
 bool Slot::is_pressed(int x_mouse, int y_mouse) const {
@@ -611,6 +613,51 @@ void Inventory::upload() {
         for (auto &j: i) j.upload(out);
     }
     out.close();
+}
+
+void put_all(Slot& a, Slot& b) {
+    if (a.item.id != -1) {
+        if (b.item.id == a.item.id) {
+            int &cnt1 = b.cnt, &cnt2 = a.cnt;
+            int mx = b.item.max_stack_size;
+            if (cnt1 + cnt2 <= mx) {
+                cnt1 += cnt2;
+                a.item = Item();
+            } else {
+                cnt2 = cnt1 + cnt2 - mx;
+                cnt1 = mx;
+            }
+        } else if(b.item.id == -1){
+            a.swap_item(b);
+        }
+    }
+}
+
+
+void Inventory::add(Slot & slot) {
+    vector<Slot*> v;
+    v.push_back(&left_hand);
+    v.push_back(&right_hand);
+    for(int i = 0; i < FAST_PACK_SIZE; i++){
+        v.push_back(fast_pack+i);
+    }
+    for(int i = 0; i < PACK_HEIGHT; i++){
+        for(int j = 0; j < PACK_WIDTH; j++){
+            v.push_back(cock_pack[i]+j);
+        }
+    }
+    for(int i = 0; i < v.size() && slot.item.id != -1; i++){
+        if(v[i]->item.id == slot.item.id){
+            auto& kok = *v[i];
+            put_all(slot, kok);
+        }
+    }
+    if(slot.item.id != -1){
+        for(int i = 0; i < v.size() && slot.item.id != -1; i++){
+            auto& kok = *v[i];
+            put_all(slot, kok);
+        }
+    }
 }
 
 #endif //SUPERMEGA2DGAME_INVENTORY_H

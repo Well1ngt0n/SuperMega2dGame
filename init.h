@@ -26,6 +26,9 @@ int window_width = 800, window_height = 600;
 
 void init_textures() {
 
+    test_font.loadFromFile(dir_path+"fonts/Hack-Regular.ttf");
+    cnt_font.loadFromFile(dir_path+"fonts/Vogue Bold.ttf");
+
     for (int i = 0; i < MAX_TEXTURES_COUNT; i++) {
         string name = dir_path + "textures/" + std::to_string(i) + ".png";
         textures[i].loadFromFile(name);
