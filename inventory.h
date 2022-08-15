@@ -628,7 +628,14 @@ void put_all(Slot& a, Slot& b) {
                 cnt1 = mx;
             }
         } else if(b.item.id == -1){
-            a.swap_item(b);
+            if(a.item.max_stack_size < a.cnt){
+                b.item = a.item;
+                b.cnt = a.item.max_stack_size;
+                a.cnt -= a.item.max_stack_size;
+            }
+            else {
+                a.swap_item(b);
+            }
         }
     }
 }

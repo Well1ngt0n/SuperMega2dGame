@@ -191,12 +191,76 @@ struct Game {
 
         bool d_right = false, d_left = false, d_up = false, d_down = false;
 
+        int objects_run = 0;
         int walk = 0;
         int attack = 0;
     };
 
     Player player;
 
+    void drop_slot(Slot& slot, int x, int y, bool cnt=0){
+        if(slot.item.id == -1) return;
+        int cx = x/CHUNK_SIZE, cy = y/CHUNK_SIZE;
+        bool f = 0;
+        if(slot.item.max_stack_size != 1) {
+            for (int i = cx - 1; i <= cx + 1 && !f; i++) {
+                for (int j = cy - 1; j <= cy + 1 && !f; j++) {
+                    int nx = (i < 0 ? i + WORLD_SIZE : i >= WORLD_SIZE ? i - WORLD_SIZE : i);
+                    int ny = (j < 0 ? j + WORLD_SIZE : j >= WORLD_SIZE ? j - WORLD_SIZE : j);
+                    for (auto &item: chunks[nx][ny].drop_items) {
+                        if (item.item.id != slot.item.id) continue;
+                        int dx1 = x - item.x_coord;
+                        int dx2 = x - WORLD_PIXEL_SIZE - item.x_coord;
+                        int dx3 = -item.x_coord + WORLD_PIXEL_SIZE + x;
+
+                        int dy1 = y - item.y_coord;
+                        int dy2 = y - WORLD_PIXEL_SIZE - item.y_coord;
+                        int dy3 = -item.y_coord + y + WORLD_PIXEL_SIZE;
+
+                        int dx = (abs(dx1) < abs(dx2) ? abs(dx3) < abs(dx1) ? dx3 : dx1 : abs(dx3) <
+                                                                                          abs(dx2) ? dx3
+                                                                                                   : dx2), dy = (
+                                abs(dy1) < abs(dy2) ? abs(dy3) < abs(dy1) ? dy3 : dy1 : abs(dy3) < abs(dy2)
+                                                                                        ? dy3 : dy2);
+
+                        if (hypot(dx, dy) <= 48) {
+                            f = 1;
+                            if(cnt) {
+                                item.cnt += 1;
+                                slot.cnt--;
+                                if (slot.cnt == 0) {
+                                    slot.item = Item();
+                                }
+                            }
+                            else{
+                                item.cnt += slot.cnt;
+                                slot.item = Item();
+                                slot.cnt = 0;
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        if(!f) {
+            auto item = DropItem(slot);
+            if(cnt) {
+                item.cnt = 1;
+                slot.cnt--;
+                if (slot.cnt == 0) {
+                    slot.item = Item();
+                }
+            }
+            else{
+                slot.item = Item();
+                slot.cnt = 0;
+            }
+            item.x_coord = x;
+            item.y_coord = y;
+            chunks[x / CHUNK_SIZE][y / CHUNK_SIZE].drop_items.push_back(item);
+        }
+    }
 
     struct Mob : public MovableObject {
         vector<int> attack_animation[8];
@@ -218,7 +282,6 @@ struct Game {
 
         }
     };
-
 
     struct DropItem : public sf::Sprite {
         Item item;
@@ -341,7 +404,10 @@ struct Game {
         }
 
         void upload() {
-            if(mobs.size() + objects.size() + drop_items.size() == 0) return;
+            if(mobs.size() + objects.size() + drop_items.size() == 0) {
+                remove((dir_path + "chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str());
+                return;
+            }
             std::ofstream f(
                     (dir_path + "chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str(),
                     std::ios::out | std::ios::trunc);
@@ -529,6 +595,7 @@ struct Game {
 
                                     if (hypot(dx, dy) <= 128) {
                                         item.is_run = true;
+                                        player.objects_run++;
                                     }
                                 }
                             }
@@ -559,13 +626,35 @@ struct Game {
         } else if (event.type == sf::Event::MouseButtonPressed) {
             if (event.mouseButton.button == sf::Mouse::Left) {
                 if (player.inventory.left_click_in_inventory(event.mouseButton.x, event.mouseButton.y));
-                else {
-                    // обработка лкм если клик пришелся не на слоты инвентаря
+                else if(player.inventory.is_item_in_mouse) {
+                    int dx = event.mouseButton.x - window_width / 2, dy = event.mouseButton.y - window_height / 2;
+                    double x, y;
+                    if(hypot(dx, dy) < radius){
+                        x = dx, y = dy;
+                    }
+                    else {
+                        double alpha = (double) dy / dx;
+                        x = radius / sqrt(1 + alpha * alpha);
+                        if (dx < 0) x = -x;
+                        y = x * alpha;
+                    }
+                    drop_slot(player.inventory.invisible_mouse_slot, (player.x_coord + (int)x + WORLD_PIXEL_SIZE) % WORLD_PIXEL_SIZE, (player.y_coord + (int)y + WORLD_PIXEL_SIZE) % WORLD_PIXEL_SIZE);
                 }
             } else if (event.mouseButton.button == sf::Mouse::Right) {
                 if (player.inventory.right_click_in_inventory(event.mouseButton.x, event.mouseButton.y));
-                else {
-                    // обработка лкм если клик пришелся не на слоты инвентаря
+                else if(player.inventory.is_item_in_mouse){
+                    int dx = event.mouseButton.x - window_width / 2, dy = event.mouseButton.y - window_height / 2;
+                    double x, y;
+                    if(hypot(dx, dy) < radius){
+                        x = dx, y = dy;
+                    }
+                    else {
+                        double alpha = (double) dy / dx;
+                        x = radius / sqrt(1 + alpha * alpha);
+                        if (dx < 0) x = -x;
+                        y = x * alpha;
+                    }
+                    drop_slot(player.inventory.invisible_mouse_slot, (player.x_coord + (int)x + WORLD_PIXEL_SIZE) % WORLD_PIXEL_SIZE, (player.y_coord + (int)y + WORLD_PIXEL_SIZE) % WORLD_PIXEL_SIZE, 1);
                 }
             }
         } else if (event.type == sf::Event::MouseMoved) {
@@ -647,6 +736,7 @@ struct Game {
                                 }
                                 else{
                                     it->is_run = false;
+                                    player.objects_run--;
                                 }
                             }
                             it++;
@@ -696,13 +786,13 @@ struct Game {
 
     void exit() {
         player.inventory.upload();
-        /*for(int i = 0; i < WORLD_SIZE; i++){
+        for(int i = 0; i < WORLD_SIZE; i++){
             for(int j = 0; j < WORLD_SIZE; j++){
                 if(active_chunks[i][j]){
                     chunks[i][j].del();
                 }
             }
-        }*/
+        }
         // выгрузка всех чанков при выходе
     }
 };

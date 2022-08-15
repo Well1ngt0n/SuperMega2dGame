@@ -14,7 +14,8 @@ const int
         PACK_HEIGHT = 3,
         FAST_PACK_SIZE = 10,
         SLOT_PIXEL_SIZE = 32,
-        max_fps = 60;
+        max_fps = 60,
+        radius = 64;
 
 const string dir_path = "../";
 sf::Sprite active_slot_sprite, default_slot_sprite;
