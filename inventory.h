@@ -531,23 +531,23 @@ Inventory::Inventory() {
     active_slot_sprite.setTexture(textures[9]);
     default_slot_sprite.setTexture(textures[8]);
     left_hand.x_pix = SLOT_PIXEL_SIZE / 2;
-    left_hand.y_pix = 2 * SLOT_PIXEL_SIZE;
+    left_hand.y_pix = 80 + 2 * SLOT_PIXEL_SIZE;
     right_hand.x_pix = SLOT_PIXEL_SIZE / 2 + SLOT_PIXEL_SIZE + 2 * SLOT_PIXEL_SIZE;
-    right_hand.y_pix = 2 * SLOT_PIXEL_SIZE;
+    right_hand.y_pix = 80 + 2 * SLOT_PIXEL_SIZE;
     for (int i = 0; i < 4; i++) {
         armor[i].x_pix = SLOT_PIXEL_SIZE / 2 + SLOT_PIXEL_SIZE + SLOT_PIXEL_SIZE / 2;
-        armor[i].y_pix = SLOT_PIXEL_SIZE / 4 + i * SLOT_PIXEL_SIZE + SLOT_PIXEL_SIZE / 4 * i;
+        armor[i].y_pix = 80 + SLOT_PIXEL_SIZE / 4 + i * SLOT_PIXEL_SIZE + SLOT_PIXEL_SIZE / 4 * i;
     }
     fast_pack[0].is_active = true;
     for (int i = 0; i < FAST_PACK_SIZE; i++) {
         fast_pack[i].x_pix =
-                4 * SLOT_PIXEL_SIZE + SLOT_PIXEL_SIZE / 2 + 2 * SLOT_PIXEL_SIZE + i * SLOT_PIXEL_SIZE;
+                600 + 4 * SLOT_PIXEL_SIZE + SLOT_PIXEL_SIZE / 2 + 2 * SLOT_PIXEL_SIZE + i * SLOT_PIXEL_SIZE;
         fast_pack[i].y_pix = SLOT_PIXEL_SIZE;
     }
     for (int i = 0; i < PACK_HEIGHT; i++) {
         for (int j = 0; j < PACK_WIDTH; j++) {
             cock_pack[i][j].x_pix =
-                    4 * SLOT_PIXEL_SIZE + SLOT_PIXEL_SIZE / 2 + 2 * SLOT_PIXEL_SIZE + j * SLOT_PIXEL_SIZE;
+                    600 + 4 * SLOT_PIXEL_SIZE + SLOT_PIXEL_SIZE / 2 + 2 * SLOT_PIXEL_SIZE + j * SLOT_PIXEL_SIZE;
             cock_pack[i][j].y_pix = 2 * SLOT_PIXEL_SIZE + SLOT_PIXEL_SIZE / 4 + i * SLOT_PIXEL_SIZE;
         }
     }

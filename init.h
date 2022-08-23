@@ -23,12 +23,15 @@ sf::Texture textures[MAX_TEXTURES_COUNT]; // Жоска экономим пам�
 sf::Texture item_textures[ITEMS_COUNT];
 sf::Font test_font;
 sf::Font cnt_font;
-int window_width = 800, window_height = 600;
+sf::Texture texture_stamina_health;
+int window_width = 1920, window_height = 1080;
 
 void init_textures() {
 
     test_font.loadFromFile(dir_path+"fonts/Hack-Regular.ttf");
     cnt_font.loadFromFile(dir_path+"fonts/Vogue Bold.ttf");
+
+    texture_stamina_health.loadFromFile(dir_path + "textures/poloska_of_health_or_stamina.png");
 
     for (int i = 0; i < MAX_TEXTURES_COUNT; i++) {
         string name = dir_path + "textures/" + std::to_string(i) + ".png";

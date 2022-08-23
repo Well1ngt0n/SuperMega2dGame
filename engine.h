@@ -2,11 +2,13 @@
 #ifndef UNTITLED4_ENGINE_H
 #define UNTITLED4_ENGINE_H
 
+#pragma once
 #include <SFML/Graphics.hpp>
 #include <SFML/Window.hpp>
 #include <SFML/System.hpp>
 #include <bits/stdc++.h>
 #include "inventory.h"
+#include "init.h"
 
 bool active_chunks[WORLD_SIZE][WORLD_SIZE];
 
@@ -131,11 +133,28 @@ struct Game {
         Player() : MovableObject(0, 0, 0) {
             dx = 0;
             dy = 0;
-            speed = 300;
+            speed = default_speed = 300;
+            health_regeneration = default_health_regeneration;
+            stamina_regeneration = default_stamina_regeneration;
+            max_health_points = max_stamina_points = 1000;
+            health_points = stamina_points = 1;
+
+            stamina_sprite.setTexture(texture_stamina_health);
+            stamina_sprite.setPosition(0, 40);
+            health_sprite.setTexture(texture_stamina_health);
+            health_sprite.setPosition(0, 0);
             setTexture(textures[0]);
         };
 
-        void update() {
+        void move(std::chrono::duration<float> &time_passed){
+            speed = default_speed;
+            if (is_run) speed = default_speed * run_speed;
+            if (is_rush) speed = default_speed * rush_speed;
+            if (objects_run) speed = default_speed * slow_speed;
+            MovableObject::move(time_passed);
+        }
+
+        void update(std::chrono::duration<float> &time_passed) {
             walk = 1;
             if (d_up) {
                 if (d_right) {
@@ -180,11 +199,66 @@ struct Game {
             }
             auto[width, height] = this->getTexture()->getSize();
             setPosition(window_width / 2 - width / 2, window_height / 2 - height / 2);
+
+            time_from_last_damage = std::min(time_from_last_damage + time_passed.count(), 4.0);
+            time_from_last_regeneration_health += time_passed.count();
+            if (time_from_last_damage == 4.0) {
+                health_points = std::min(health_points + health_regeneration, max_health_points);
+                //time_from_last_regeneration_health = 0;
+            }
+
+            time_from_last_stamina_waste = std::min(time_from_last_stamina_waste + time_passed.count(), 2.0);
+            time_from_last_regeneration_stamina += time_passed.count();
+            if (time_from_last_stamina_waste == 2.0) {
+                stamina_points = std::min(stamina_points + stamina_regeneration, max_stamina_points);
+                //time_from_last_regeneration_health = 0;
+            }
+            time_from_last_rush = std::min(time_from_last_rush + time_passed.count(), time_between_rushs);
+            if (is_rush && (dx != 0 || dy != 0)){
+                time_from_last_stamina_waste = 0;
+                time_from_last_rush = 0;
+                stamina_points = std::max(stamina_points - rush_cost, 0.0);
+                rush_time += time_passed.count();
+                if (rush_time >= all_rush_time) {
+                    is_rush = false;
+                    rush_time = 0;
+                }
+                if (stamina_points == 0){
+                    is_rush = is_run = false;
+                    rush_time = 0;
+                }
+            } else if (is_run && (dx != 0 || dy != 0)){
+                time_from_last_stamina_waste = 0;
+                stamina_points = std::max(stamina_points - run_cost, 0.0);
+                if (stamina_points == 0) is_run = false;
+            }
+            if (is_rush && dx == 0 && dy == 0){
+                is_rush = false;
+            }
         }
 
         void draw(sf::RenderWindow *window_) {
             window_->draw(*this);
+
+            sf::RectangleShape health_rect(sf::Vector2f(600.0 * ((float)health_points / (float)max_health_points), 32));
+            sf::RectangleShape stamina_rect(sf::Vector2f(600.0 * ((float)stamina_points / (float)max_stamina_points), 32));
+            health_rect.setFillColor(sf::Color(255, 0, 0));
+            health_rect.setPosition(0, 0);
+            stamina_rect.setPosition(0, 40);
+            window_->draw(health_rect);
+            window_->draw(stamina_rect);
+
+            window_->draw(health_sprite);
+            window_->draw(stamina_sprite);
             inventory.draw(window_);
+        }
+
+        void damage(int damage_points) {
+            health_points = std::max(0.0, health_points - damage_points);
+            time_from_last_damage = 0;
+            if (health_points == 0) {
+                //TODO: сделать интерфейс
+            }
         }
 
         Inventory inventory;
@@ -194,16 +268,30 @@ struct Game {
         int objects_run = 0;
         int walk = 0;
         int attack = 0;
-
+        bool is_run = false;
+        bool is_rush = false;
+        int default_speed;
+        int run_speed = 2;
+        int rush_speed = 11;
+        double slow_speed = 0.5;
+        double max_health_points, max_stamina_points;
+        double health_points, stamina_points;
+        double default_health_regeneration = 1, default_stamina_regeneration = 3;
+        double health_regeneration, stamina_regeneration;
+        double time_from_last_damage = 4.0, time_from_last_stamina_waste = 2.0,
+        time_from_last_regeneration_health = 0, time_from_last_regeneration_stamina = 0,
+        rush_time = 0, all_rush_time = 0.1, time_between_rushs = 0.2, time_from_last_rush = 0;
+        double rush_cost = 7, run_cost = 1;
+        sf::Sprite stamina_sprite, health_sprite;
     };
 
     Player player;
 
-    void drop_slot(Slot& slot, int x, int y, bool cnt=0){
-        if(slot.item.id == -1) return;
-        int cx = x/CHUNK_SIZE, cy = y/CHUNK_SIZE;
+    void drop_slot(Slot &slot, int x, int y, bool cnt = 0) {
+        if (slot.item.id == -1) return;
+        int cx = x / CHUNK_SIZE, cy = y / CHUNK_SIZE;
         bool f = 0;
-        if(slot.item.max_stack_size != 1) {
+        if (slot.item.max_stack_size != 1) {
             for (int i = cx - 1; i <= cx + 1 && !f; i++) {
                 for (int j = cy - 1; j <= cy + 1 && !f; j++) {
                     int nx = (i < 0 ? i + WORLD_SIZE : i >= WORLD_SIZE ? i - WORLD_SIZE : i);
@@ -226,14 +314,13 @@ struct Game {
 
                         if (hypot(dx, dy) <= 48) {
                             f = 1;
-                            if(cnt) {
+                            if (cnt) {
                                 item.cnt += 1;
                                 slot.cnt--;
                                 if (slot.cnt == 0) {
                                     slot.item = Item();
                                 }
-                            }
-                            else{
+                            } else {
                                 item.cnt += slot.cnt;
                                 slot.item = Item();
                                 slot.cnt = 0;
@@ -244,16 +331,15 @@ struct Game {
                 }
             }
         }
-        if(!f) {
+        if (!f) {
             auto item = DropItem(slot);
-            if(cnt) {
+            if (cnt) {
                 item.cnt = 1;
                 slot.cnt--;
                 if (slot.cnt == 0) {
                     slot.item = Item();
                 }
-            }
-            else{
+            } else {
                 slot.item = Item();
                 slot.cnt = 0;
             }
@@ -293,11 +379,11 @@ struct Game {
         bool dir = 1;
         bool is_run = false;
 
-        DropItem(Item& item, int cnt, int x, int y) : item(item), cnt(cnt), x_coord(x), y_coord(y) {
+        DropItem(Item &item, int cnt, int x, int y) : item(item), cnt(cnt), x_coord(x), y_coord(y) {
             this->setTexture(item_textures[item.id]);
         }
 
-        explicit DropItem(Slot& slot) {
+        explicit DropItem(Slot &slot) {
             this->setTexture(item_textures[slot.item.id]);
             item = slot.item;
             cnt = slot.cnt;
@@ -312,24 +398,26 @@ struct Game {
 
         void draw(int player_x, int player_y, sf::RenderWindow *window) {
             auto[x_window, y_window] = get_window_coords(x_coord, y_coord, player_x, player_y);
-            this->setPosition(x_window - SLOT_PIXEL_SIZE/2, y_window-delta);
+            this->setPosition(x_window - SLOT_PIXEL_SIZE / 2, y_window - delta);
             window->draw(*this);
             if (cnt > 1) {
-                this->setPosition(x_window + SLOT_PIXEL_SIZE / 8-SLOT_PIXEL_SIZE/2, y_window-delta+ SLOT_PIXEL_SIZE / 8);
+                this->setPosition(x_window + SLOT_PIXEL_SIZE / 8 - SLOT_PIXEL_SIZE / 2,
+                                  y_window - delta + SLOT_PIXEL_SIZE / 8);
                 window->draw(*this);
             }
         }
-        int update(std::chrono::duration<float> &time_passed, Player& player) {
+
+        int update(std::chrono::duration<float> &time_passed, Player &player) {
             time_from_last_animation += time_passed.count();
-            if(time_from_last_animation * 1000 >= 30){
+            if (time_from_last_animation * 1000 >= 30) {
                 time_from_last_animation = 0;
-                if(delta == 16 && dir) dir = 0;
-                else if(delta == 0 && !dir) dir = 1;
-                else{
-                    delta += 2*dir-1;
+                if (delta == 16 && dir) dir = 0;
+                else if (delta == 0 && !dir) dir = 1;
+                else {
+                    delta += 2 * dir - 1;
                 }
             }
-            if(is_run){
+            if (is_run) {
                 int dx1 = player.x_coord - x_coord;
                 int dx2 = +player.x_coord - WORLD_PIXEL_SIZE - x_coord;
                 int dx3 = -x_coord + WORLD_PIXEL_SIZE + player.x_coord;
@@ -338,9 +426,11 @@ struct Game {
                 int dy2 = player.y_coord - WORLD_PIXEL_SIZE - y_coord;
                 int dy3 = -y_coord + player.y_coord + WORLD_PIXEL_SIZE;
 
-                int dx = (abs(dx1) < abs(dx2) ? abs(dx3) < abs(dx1) ? dx3 : dx1 : abs(dx3) < abs(dx2) ? dx3 : dx2), dy = (abs(dy1) < abs(dy2) ? abs(dy3) < abs(dy1) ? dy3 : dy1 : abs(dy3) < abs(dy2) ? dy3 : dy2);
+                int dx = (abs(dx1) < abs(dx2) ? abs(dx3) < abs(dx1) ? dx3 : dx1 : abs(dx3) < abs(dx2) ? dx3
+                                                                                                      : dx2), dy = (
+                        abs(dy1) < abs(dy2) ? abs(dy3) < abs(dy1) ? dy3 : dy1 : abs(dy3) < abs(dy2) ? dy3 : dy2);
 
-                if(hypot(dx, dy) < 48){
+                if (hypot(dx, dy) < 48) {
                     return 1;
                 }
 
@@ -353,7 +443,7 @@ struct Game {
                 while (x_coord >= WORLD_PIXEL_SIZE) x_coord -= WORLD_PIXEL_SIZE;
                 while (y_coord >= WORLD_PIXEL_SIZE) y_coord -= WORLD_PIXEL_SIZE;
 
-                if(prx/CHUNK_SIZE != x_coord/CHUNK_SIZE || pry/CHUNK_SIZE != y_coord/CHUNK_SIZE){
+                if (prx / CHUNK_SIZE != x_coord / CHUNK_SIZE || pry / CHUNK_SIZE != y_coord / CHUNK_SIZE) {
                     return 2; //выписать из старого чанка, азгрузить в новый
                 }
             }
@@ -405,8 +495,9 @@ struct Game {
         }
 
         void upload() {
-            if(mobs.size() + objects.size() + drop_items.size() == 0) {
-                remove((dir_path + "chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) + ".chunk").c_str());
+            if (mobs.size() + objects.size() + drop_items.size() == 0) {
+                remove((dir_path + "chunks/" + std::to_string(x_coord) + "-" + std::to_string(y_coord) +
+                        ".chunk").c_str());
                 return;
             }
             std::ofstream f(
@@ -572,36 +663,44 @@ struct Game {
                     player.inventory.fast_pack[9].is_active = true;
                     player.inventory.active_slot = {0, 9};
                     break;
-                case sf::Keyboard::Space:
-                    {
-                        int x = player.x_coord / CHUNK_SIZE, y = player.y_coord / CHUNK_SIZE;
-                        for (int i = x - 1; i <= x + 1; i++) {
-                            for (int j = y - 1; j <= y + 1; j++) {
-                                int nx = (i < 0 ? i + WORLD_SIZE : i >= WORLD_SIZE ? i - WORLD_SIZE:i);
-                                int ny = (j < 0 ? j + WORLD_SIZE : j >= WORLD_SIZE ? j - WORLD_SIZE:j);
-                                for (auto &item: chunks[nx][ny].drop_items) {
-                                    int dx1 = player.x_coord - item.x_coord;
-                                    int dx2 = +player.x_coord - WORLD_PIXEL_SIZE - item.x_coord;
-                                    int dx3 = -item.x_coord + WORLD_PIXEL_SIZE + player.x_coord;
+                case sf::Keyboard::C: {
+                    int x = player.x_coord / CHUNK_SIZE, y = player.y_coord / CHUNK_SIZE;
+                    for (int i = x - 1; i <= x + 1; i++) {
+                        for (int j = y - 1; j <= y + 1; j++) {
+                            int nx = (i < 0 ? i + WORLD_SIZE : i >= WORLD_SIZE ? i - WORLD_SIZE : i);
+                            int ny = (j < 0 ? j + WORLD_SIZE : j >= WORLD_SIZE ? j - WORLD_SIZE : j);
+                            for (auto &item: chunks[nx][ny].drop_items) {
+                                int dx1 = player.x_coord - item.x_coord;
+                                int dx2 = +player.x_coord - WORLD_PIXEL_SIZE - item.x_coord;
+                                int dx3 = -item.x_coord + WORLD_PIXEL_SIZE + player.x_coord;
 
-                                    int dy1 = player.y_coord - item.y_coord;
-                                    int dy2 = player.y_coord - WORLD_PIXEL_SIZE - item.y_coord;
-                                    int dy3 = -item.y_coord + player.y_coord + WORLD_PIXEL_SIZE;
+                                int dy1 = player.y_coord - item.y_coord;
+                                int dy2 = player.y_coord - WORLD_PIXEL_SIZE - item.y_coord;
+                                int dy3 = -item.y_coord + player.y_coord + WORLD_PIXEL_SIZE;
 
-                                    int dx = (abs(dx1) < abs(dx2) ? abs(dx3) < abs(dx1) ? dx3 : dx1 : abs(dx3) <
-                                                                                                      abs(dx2) ? dx3
-                                                                                                               : dx2), dy = (
-                                            abs(dy1) < abs(dy2) ? abs(dy3) < abs(dy1) ? dy3 : dy1 : abs(dy3) < abs(dy2)
-                                                                                                    ? dy3 : dy2);
+                                int dx = (abs(dx1) < abs(dx2) ? abs(dx3) < abs(dx1) ? dx3 : dx1 : abs(dx3) < abs(dx2) ? dx3 : dx2);
+                                int dy = (abs(dy1) < abs(dy2) ? abs(dy3) < abs(dy1) ? dy3 : dy1 : abs(dy3) < abs(dy2) ? dy3 : dy2);
 
-                                    if (hypot(dx, dy) <= 128) {
-                                        player.objects_run += 1^item.is_run;
-                                        item.is_run = true;
-                                        player.speed = 50;
-                                    }
+                                if (hypot(dx, dy) <= 128) {
+                                    player.objects_run += 1 ^ item.is_run;
+                                    item.is_run = true;
+                                    player.speed = player.default_speed * player.slow_speed;
+                                    if (player.is_run)
+                                        player.is_run = false;
                                 }
                             }
                         }
+                    }
+                }
+                    break;
+                case sf::Keyboard::LShift:
+                    if (!player.objects_run && !player.is_rush) {
+                        player.is_run = true;
+                    }
+                    break;
+                case sf::Keyboard::Space:
+                    if (!player.objects_run && player.time_from_last_rush == player.time_between_rushs){
+                        player.is_rush = true;
                     }
                     break;
                 default:
@@ -622,49 +721,54 @@ struct Game {
                 case sf::Keyboard::S:
                     player.d_down = false;
                     break;
+                case sf::Keyboard::LShift:
+                    player.is_run = false;
+                    break;
+                case sf::Keyboard::Space:
+                    player.is_rush = false;
                 default:
                     break;
             }
         } else if (event.type == sf::Event::MouseButtonPressed) {
             if (event.mouseButton.button == sf::Mouse::Left) {
                 if (player.inventory.left_click_in_inventory(event.mouseButton.x, event.mouseButton.y));
-                else if(player.inventory.invisible_mouse_slot.item.id != -1) {
+                else if (player.inventory.invisible_mouse_slot.item.id != -1) {
                     int dx = event.mouseButton.x - window_width / 2, dy = event.mouseButton.y - window_height / 2;
                     double x, y;
-                    if(hypot(dx, dy) < radius){
+                    if (hypot(dx, dy) < radius) {
                         x = dx, y = dy;
-                    }
-                    else {
+                    } else {
                         double alpha = (double) dy / dx;
                         x = radius / sqrt(1 + alpha * alpha);
                         if (dx < 0) x = -x;
                         y = x * alpha;
                     }
-                    drop_slot(player.inventory.invisible_mouse_slot, (player.x_coord + (int)x + WORLD_PIXEL_SIZE) % WORLD_PIXEL_SIZE, (player.y_coord + (int)y + WORLD_PIXEL_SIZE) % WORLD_PIXEL_SIZE);
+                    drop_slot(player.inventory.invisible_mouse_slot,
+                              (player.x_coord + (int) x + WORLD_PIXEL_SIZE) % WORLD_PIXEL_SIZE,
+                              (player.y_coord + (int) y + WORLD_PIXEL_SIZE) % WORLD_PIXEL_SIZE);
                 }
             } else if (event.mouseButton.button == sf::Mouse::Right) {
                 if (player.inventory.right_click_in_inventory(event.mouseButton.x, event.mouseButton.y));
-                else if(player.inventory.invisible_mouse_slot.item.id != -1){
+                else if (player.inventory.invisible_mouse_slot.item.id != -1) {
                     int dx = event.mouseButton.x - window_width / 2, dy = event.mouseButton.y - window_height / 2;
                     double x, y;
-                    if(hypot(dx, dy) < radius){
+                    if (hypot(dx, dy) < radius) {
                         x = dx, y = dy;
-                    }
-                    else {
+                    } else {
                         double alpha = (double) dy / dx;
                         x = radius / sqrt(1 + alpha * alpha);
                         if (dx < 0) x = -x;
                         y = x * alpha;
                     }
-                    drop_slot(player.inventory.invisible_mouse_slot, (player.x_coord + (int)x + WORLD_PIXEL_SIZE) % WORLD_PIXEL_SIZE, (player.y_coord + (int)y + WORLD_PIXEL_SIZE) % WORLD_PIXEL_SIZE, 1);
+                    drop_slot(player.inventory.invisible_mouse_slot,
+                              (player.x_coord + (int) x + WORLD_PIXEL_SIZE) % WORLD_PIXEL_SIZE,
+                              (player.y_coord + (int) y + WORLD_PIXEL_SIZE) % WORLD_PIXEL_SIZE, 1);
                 }
             }
         } else if (event.type == sf::Event::MouseMoved) {
             player.inventory.invisible_mouse_slot.x_pix = event.mouseMove.x;
             player.inventory.invisible_mouse_slot.y_pix = event.mouseMove.y;
         }
-
-        player.update();
     }
 
     void move() {
@@ -683,6 +787,7 @@ struct Game {
                 }
             }
         }
+        player.update(time_passed);
         player.move(time_passed);
     }
 
@@ -700,9 +805,9 @@ struct Game {
         int x = player.x_coord / CHUNK_SIZE, y = player.y_coord / CHUNK_SIZE;
 
         for (int d = 0; d <= MAX_RENDER_DISTANCE + 1; d++) {
-            for (int i_ = 0; i_ < (d==0?1:d); ++i_) {
-                for (int k = 0; k < (d==0?1:4); k++) {
-                    int i = i_ + (k&1);
+            for (int i_ = 0; i_ < (d == 0 ? 1 : d); ++i_) {
+                for (int k = 0; k < (d == 0 ? 1 : 4); k++) {
+                    int i = i_ + (k & 1);
                     int j = d - i;
                     int nx = (x + dx[k] * i + WORLD_SIZE) % WORLD_SIZE, ny = (y + dy[k] * j + WORLD_SIZE) % WORLD_SIZE;
                     if (d == MAX_RENDER_DISTANCE + 1 && active_chunks[nx][ny]) {
@@ -720,33 +825,33 @@ struct Game {
                             //mob.move();
                             pool_mobs.emplace_back(mob);
                         }
-                       for (auto it = chunks[nx][ny].drop_items.begin(); it != chunks[nx][ny].drop_items.end();) {
+                        for (auto it = chunks[nx][ny].drop_items.begin(); it != chunks[nx][ny].drop_items.end();) {
                             int kok = it->update(time_passed, player);
                             pool_items.push_back(*it);
-                            if(kok == 2){
-                                chunks[it->x_coord/CHUNK_SIZE][it->y_coord/CHUNK_SIZE].drop_items.push_back(*it);
+                            if (kok == 2) {
+                                chunks[it->x_coord / CHUNK_SIZE][it->y_coord / CHUNK_SIZE].drop_items.push_back(*it);
                                 std::cout << "kok" << std::endl;
                                 it = chunks[nx][ny].drop_items.erase(it);
                                 continue;
-                            }
-                            else if(kok == 1){
+                            } else if (kok == 1) {
                                 auto slot = it->get_slot();
                                 player.inventory.add(slot);
-                                if(slot.item.id == -1){
+                                if (slot.item.id == -1) {
                                     it = chunks[nx][ny].drop_items.erase(it);
-                                    std::cout << player.objects_run - 1 << std::endl;
-                                    if(!(--player.objects_run)){
-                                        player.speed = 300;
-                                    }
+                                    //std::cout << player.objects_run - 1 << std::endl;
+                                    player.objects_run--;
+                                    /*if (!(--player.objects_run)) {
+                                        player.speed = player.default_speed;
+                                    }*/
                                     continue;
-                                }
-                                else{
+                                } else {
                                     it->is_run = false;
                                 }
-                                std::cout << player.objects_run - 1 << std::endl;
-                                if(!(--player.objects_run)){
-                                    player.speed = 300;
-                                }
+                                player.objects_run--;
+                                //std::cout << player.objects_run - 1 << std::endl;
+                                /*if (!(--player.objects_run)) {
+                                    player.speed = player.default_speed;
+                                }*/
                             }
                             it++;
                         }
@@ -795,9 +900,9 @@ struct Game {
 
     void exit() {
         player.inventory.upload();
-        for(int i = 0; i < WORLD_SIZE; i++){
-            for(int j = 0; j < WORLD_SIZE; j++){
-                if(active_chunks[i][j]){
+        for (int i = 0; i < WORLD_SIZE; i++) {
+            for (int j = 0; j < WORLD_SIZE; j++) {
+                if (active_chunks[i][j]) {
                     chunks[i][j].del();
                 }
             }
